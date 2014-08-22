@@ -1,26 +1,21 @@
 package common
 
-type ConnectionType byte
-const (
-  ClientConnection ConnectionType = iota
-  WorkerConnection
-)
-
 type WorkerStatus byte
 const (
-  Ready WorkerStatus = iota
-  Idle
-  BusyAvailable
-  BusyFull
-  Finalized
+  WReady WorkerStatus = iota
+  WIdle
+  WBusyAvailable
+  WBusyFull
+  WFinalized
 )
 
 type WorkerOperation byte
 const (
-  HealthCheck = iota
-  GetTask
-  TaskCompeted
-  SendResult
+  WInit WorkerOperation = iota
+  WHealthCheck
+  WGetTask
+  WTaskCompeted
+  WSendResult
 )
 
 type Task struct {

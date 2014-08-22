@@ -1,12 +1,17 @@
 package main
 
-import ("../common")
+import (
+  "../common"
+  "net"
+)
 
 type Worker struct {
   index int
+  addr net.Addr
   tasks chan common.Task
   // number of pending tasks
   pending int
+  capacity int
   status common.WorkerStatus
 }
 
@@ -42,3 +47,5 @@ func (p *Pool) Pop() interface{} {
   w.index = -1
   return w
 }
+
+

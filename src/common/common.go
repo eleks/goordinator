@@ -1,5 +1,10 @@
 package common
 
+import (
+  "io"
+  "net"
+)
+
 type WorkerStatus byte
 const (
   WReady WorkerStatus = iota
@@ -25,3 +30,14 @@ type Task struct {
   index []int
    size []int
 }
+
+type Socket struct {
+  net.Conn
+  done chan bool
+}
+
+func (s Socket) Close() error {
+  s.done <- true
+  return nil
+}
+

@@ -22,13 +22,13 @@ func handleWorkersConnections(addworker chan<- Worker) {
       continue
     }
 
-    go handleWorker(conn, addworker)
+    sock = common.Socket {conn, make(chan bool)}
+
+    go handleWorker(sock, addworker)
   }
 }
 
-func handleWorker(conn net.Conn, addworker chan<- Worker) error {
-  defer conn.Close()
-
+func handleWorker(sock common.Socket, addworker chan<- Worker, healthcheck chan<- common.Socket) error {
   op_type := make([]byte, 1)
 
   _, err := io.ReadFull(conn, op_type)
@@ -39,13 +39,16 @@ func handleWorker(conn net.Conn, addworker chan<- Worker) error {
   optype := common.WorkerOperation(op_type[0])
   switch optype {
   case common.WInit:
-    addworker <- Worker{addr: conn.RemoteAddr(), tasks: make(chan common.Task)}
+    addworker <- Worker{sock: sock, tasks: make(chan common.Task)}
     // TODO: send response
   case common.WHealthCheck:
-    
+    healthcheck_request <- sock    
   case common.WGetTask:
   case common.WTaskCompeted:
   case common.WSendResult:
   }
+
+  // wait until socket is processed
+  <-sock.done
 }
 

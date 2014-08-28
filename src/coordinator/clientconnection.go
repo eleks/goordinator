@@ -8,7 +8,7 @@ import (
   "fmt"
 )
 
-func handleClientsConnections(coordinator *Coordinator) {
+func handleClientsConnections(addclient chan<- *Client) {
   listener, err := net.Listen("tcp", *lwaddr)
   
   if err != nil {
@@ -22,14 +22,16 @@ func handleClientsConnections(coordinator *Coordinator) {
       continue
     }
 
-    go handleClient(conn)
+    sock := common.Socket{conn, make(chan bool)}
+    
+    go handleClient(sock, addclient)
   }
 }
 
-func handleClient(conn net.Conn) error {
+func handleClient(sock common.Socket, addclient chan<- *Client) error {
   op_type := make([]byte, 1)
 
-  _, err := io.ReadFull(conn, op_type)
+  _, err := io.ReadFull(sock, op_type)
   if err != nil {
     return err
   }
@@ -37,10 +39,13 @@ func handleClient(conn net.Conn) error {
   optype := common.ClientOperation(op_type[0])
   switch optype {
   case common.CInitSession:
+    addclient <- &Client{sock: sock, status: common.CIdle}
+  case common.CHealthCheck:
   case common.CInputParameters:
   case common.CRunComputation:
   case common.CGetResult:
   }
-  // tasks generation
+
+  <-sock.Done
   return nil
 }

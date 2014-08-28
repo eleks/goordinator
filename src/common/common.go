@@ -35,6 +35,8 @@ type Socket struct {
   Done chan bool
 }
 
+func (s Socket) RemoteAddr() net.Addr { return s.Conn.RemoteAddr() }
+
 func (s Socket) Read(b []byte) (int, error) { return s.Conn.Read(b) }
 func (s Socket) Write(b []byte) (int, error) { return s.Conn.Write(b) }
 
@@ -52,6 +54,7 @@ const (
 type ClientOperation byte
 const (
   CInitSession ClientOperation = iota
+  CHealthCheck
   CInputParameters
   CRunComputation
   CGetResult

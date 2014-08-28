@@ -2,9 +2,9 @@ package main
 
 import (
   "../common"
-  "net"
+  "io"
   "time"
-  "fmt"
+  "log"
   "encoding/binary"
 )
 
@@ -14,7 +14,7 @@ type WorkerInfo struct {
 }
 
 type Worker struct {
-  index uint32
+  index int
   sock common.Socket
   tasks chan common.Task
   // buffered channel
@@ -28,7 +28,7 @@ type Worker struct {
 }
 
 func (w *Worker) checkHealth(timeout chan *Worker) {
-  defer sock.Close()
+  defer w.sock.Close()
   
   healthcheck := make(chan common.WorkerStatus, 1)
   reply := make(chan uint32)
@@ -43,7 +43,7 @@ func (w *Worker) checkHealth(timeout chan *Worker) {
       _, err := io.ReadFull(w.sock, worker_status_buf)
       if err != nil {
         // TODO: send errors to channel
-        fmt.Printf(err)
+        log.Fatal(err)
         break healthLoop
       }
 
@@ -55,7 +55,7 @@ func (w *Worker) checkHealth(timeout chan *Worker) {
         err := binary.Write(w.sock, binary.BigEndian, tasks_available)
         if err != nil {
           // TODO: send errors to channel
-          fmt.Printf(err)
+          log.Fatal(err)
           break healthLoop
         }
       }
@@ -71,7 +71,7 @@ Loop:
       w.status = status
       reply <- w.pending
     }
-    case <- w.getInfo: w.info <- WorkerInfo {w.pending, w.status}
+    case <- w.getInfo: w.info <- WorkerInfo{w.pending, w.status}
     case <- time.After(1 * time.Second): {      
       // TODO: change timeout
       done <- true

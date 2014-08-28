@@ -1,7 +1,6 @@
 package common
 
 import (
-  "io"
   "net"
 )
 
@@ -32,12 +31,33 @@ type Task struct {
 }
 
 type Socket struct {
-  net.Conn
-  done chan bool
+  Conn net.Conn
+  Done chan bool
 }
 
+func (s Socket) Read(b []byte) (int, error) { return s.Conn.Read(b) }
+func (s Socket) Write(b []byte) (int, error) { return s.Conn.Write(b) }
+
 func (s Socket) Close() error {
-  s.done <- true
+  s.Done <- true
   return nil
 }
 
+type ClientStatus byte
+const (
+  CIdle ClientStatus = iota
+  CBusy
+)
+
+type ClientOperation byte
+const (
+  CInitSession ClientOperation = iota
+  CInputParameters
+  CRunComputation
+  CGetResult
+)
+
+type Parameter struct {
+  Size int
+  Data []byte
+}

@@ -12,14 +12,12 @@ type healthCheckFunc func()
 type Coordinator struct {
   pool Pool
   hash map[net.Addr]*Worker
-  addworker chan Worker
-  healthcheck_request chan common.Socket
   worker_timeout chan *Worker
   rmworker chan *Worker
   quit chan bool
 }
 
-func (c *Coordinator)handleChannels() {
+func (c *Coordinator)handleChannels(addworker chan Worker, healthcheck_request chan common.Socket) {
 Loop:
   for {
     select {

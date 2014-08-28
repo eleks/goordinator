@@ -2,9 +2,6 @@ package main
 
 import (
   "../common"
-  "log"
-  "io"
-  "time"
 )
 
 type Client struct {
@@ -13,69 +10,25 @@ type Client struct {
   status common.ClientStatus
 }
 
+func (c *Client) CloseSock() { c.sock.Close() }
+func (c *Client) GetSock() common.Socket { return c.sock }
+
+func (c *Client) GetStatusRequestChannel() chan bool { return make(chan bool) }
+func (c *Client) GetStatus() interface{} { return c.status }
+func (c *Client) GetStatusChannel() chan interface{} { return make(chan interface {}) }
+func (c *Client) SetHealthStatus(status byte) { c.status = common.ClientStatus(status) }
+func (c *Client) GetHealthReply() interface{} { return 1 }
+
+
 func (c *Client) replyInit(success bool) {
   defer c.sock.Close()
 
   connection_status_buf := make([]byte, 1)
   if success {
     connection_status_buf[0] = 1
-  }
-  else {
+  } else {
     connection_status_buf[0] = 0
   }
 
   c.sock.Write(connection_status_buf)
-}
-
-func (c *Client) checkHealth(timeout chan *Client) {
-  defer c.sock.Close()
-
-  healthcheck := make(chan bool, 1)
-  reply := make(chan common.ClientStatus)
-  done := make(chan bool, 1)
-
-  go func() {
-    client_status_buf := make([]byte, 1)
-
-  healthLoop:
-    for {      
-      _, err := io.ReadFull(c.sock, client_status_buf)
-      if err != nil {
-        // TODO: send errors to channel
-        log.Fatal(err)
-        break healthLoop
-      }
-
-      healthcheck <- true
-
-      select {
-      case client_status := <- reply: {
-        client_status_buf[0] = byte(client_status)
-        _, err := c.sock.Write(client_status_buf)
-        if err != nil {
-          // TODO: send errors to channel
-          log.Fatal(err)
-          break healthLoop
-        }
-      }
-      case <- done: break healthLoop
-      }
-    }
-  }()
-
-  Loop:
-  for {
-    select {
-    case status := <- healthcheck: {
-      reply <- c.status
-    }
-    case <- time.After(1 * time.Second): {      
-      // TODO: change timeout
-      done <- true
-      timeout <- c
-      break Loop
-    }
-    }
-  }
-
 }

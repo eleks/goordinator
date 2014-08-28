@@ -17,8 +17,8 @@ type Worker struct {
   index int
   sock common.Socket
   tasks chan common.Task
-  // buffered channel
-  info chan WorkerInfo
+  // buffered channel operates with common.WorkerInfo
+  info chan interface{}
   // buffered channel
   getInfo chan bool
   // number of pending tasks
@@ -27,60 +27,14 @@ type Worker struct {
   status common.WorkerStatus
 }
 
-func (w *Worker) checkHealth(timeout chan *Worker) {
-  defer w.sock.Close()
-  
-  healthcheck := make(chan common.WorkerStatus, 1)
-  reply := make(chan uint32)
-  done := make(chan bool, 1)
-  
-  go func() {
-    worker_status_buf := make([]byte, 1)
-    tasks_available_buf := make([]byte, 4)
+func (w *Worker) CloseSock() { w.sock.Close() }
+func (w *Worker) GetSock() common.Socket { return w.sock }
 
-  healthLoop:
-    for {      
-      _, err := io.ReadFull(w.sock, worker_status_buf)
-      if err != nil {
-        // TODO: send errors to channel
-        log.Fatal(err)
-        break healthLoop
-      }
-
-      worker_status := common.WorkerStatus(worker_status_buf[0])
-      healthcheck <- worker_status
-
-      select {
-      case tasks_available := <- reply: {
-        err := binary.Write(w.sock, binary.BigEndian, tasks_available)
-        if err != nil {
-          // TODO: send errors to channel
-          log.Fatal(err)
-          break healthLoop
-        }
-      }
-      case <- done: break healthLoop
-      }
-    }
-  }()
-  
-Loop:
-  for {
-    select {
-    case status := <- healthcheck: {
-      w.status = status
-      reply <- w.pending
-    }
-    case <- w.getInfo: w.info <- WorkerInfo{w.pending, w.status}
-    case <- time.After(1 * time.Second): {      
-      // TODO: change timeout
-      done <- true
-      timeout <- w
-      break Loop
-    }
-    }
-  }
-}
+func (w *Worker) GetStatusRequestChannel() chan bool { return w.getInfo }
+func (w *Worker) GetStatus() interface{} { return w.status }
+func (w *Worker) GetStatusChannel() chan interface{} { return w.info }
+func (w *Worker) SetHealthStatus(status byte) { w.status = common.WorkerStatus(status) }
+func (w *Worker) GetHealthReply() interface{} { return w.pending }
 
 type Pool []*Worker
 

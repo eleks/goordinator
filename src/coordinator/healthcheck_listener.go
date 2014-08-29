@@ -2,7 +2,10 @@ package main
 
 import (
   "../common"
+  "log"
   "io"
+  "time"
+  "encoding/binary"
 )
 
 type HealthReporter interface {
@@ -16,7 +19,8 @@ type HealthReporter interface {
   GetSock() common.Socket
 }
 
-func checkHealth(hr HealthReporter, timeout chan *HealthReporter) {
+func checkHealth(hrp *HealthReporter, timeout chan *HealthReporter) {
+  hr := *hrp
   defer hr.CloseSock()
 
   healthcheck := make(chan byte, 1)
@@ -67,7 +71,7 @@ func checkHealth(hr HealthReporter, timeout chan *HealthReporter) {
     case <- time.After(1 * time.Second): {
       // TODO: change timeout
       done <- true
-      timeout <- hr
+      timeout <- hrp
       break Loop
     }
     }

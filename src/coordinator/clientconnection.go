@@ -8,7 +8,7 @@ import (
   "fmt"
 )
 
-func handleClientsConnections(addclient chan<- *Client) {
+func handleClientsConnections(addclient chan<- *Client, healthcheck_request chan<- common.Socket) {
   listener, err := net.Listen("tcp", *lwaddr)
   
   if err != nil {
@@ -24,11 +24,11 @@ func handleClientsConnections(addclient chan<- *Client) {
 
     sock := common.Socket{conn, make(chan bool)}
     
-    go handleClient(sock, addclient)
+    go handleClient(sock, addclient, healthcheck_request)
   }
 }
 
-func handleClient(sock common.Socket, addclient chan<- *Client) error {
+func handleClient(sock common.Socket, addclient chan<- *Client, healthcheck_request chan<- common.Socket) error {
   op_type := make([]byte, 1)
 
   _, err := io.ReadFull(sock, op_type)
@@ -41,6 +41,7 @@ func handleClient(sock common.Socket, addclient chan<- *Client) error {
   case common.CInitSession:
     addclient <- &Client{sock: sock, status: common.CIdle}
   case common.CHealthCheck:
+    healthcheck_request <- sock
   case common.CInputParameters:
   case common.CRunComputation:
   case common.CGetResult:

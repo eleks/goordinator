@@ -11,12 +11,13 @@ type Coordinator struct {
   pool Pool
   client *Client
   hash map[net.Addr]*Worker
-  timeout chan *HealthReporter
+  worker_timeout chan *HealthReporter
+  client_timeout chan *HealthReporter
   rmworker chan *Worker
   quit chan bool
 }
 
-func (c *Coordinator)handleChannels(addworker chan *Worker, addclient chan *Client, healthcheck_request chan HealthReporter) {
+func (c *Coordinator)handleChannels(addworker chan *Worker, addclient chan *Client, worker_healthcheck chan common.Socket, client_healthcheck chan common.Socket) {
 Loop:
   for {
     select {
@@ -32,17 +33,26 @@ Loop:
       
       cl.replyInit(canAddClient)
     }
-    case hr := <- healthcheck_request: {
-        // TODO: add assert value,present = hash[addr]
-      sock := hr.GetSock()
+    case sock := <- worker_healthcheck: {
+      // TODO: add assert value,present = hash[addr]
       addr := sock.RemoteAddr()
-      // TODO: distinguish worker and client hash
+
       w, present := c.hash[addr]
       if !present {
         log.Fatalf("Healthcheck: worker with address %v is not registered", addr)
       }
 
-      go checkHealth(hr, c.timeout)
+      go checkHealth(w, c.worker_timeout)
+    }
+    case sock := <- client_healthcheck: {
+      addr := sock.RemoteAddr()
+
+      cl, present := c.client, c.client != nil
+      if !present {
+        log.Fatalf("Healthcheck: client with address %v is not registered", addr)
+      }
+
+      go checkHealth(cl, c.client_timeout)
     }
     case w := <- c.timeout: {
       // TODO: handle worker timeout (rebalance tasks)

@@ -4,6 +4,12 @@ import (
   "../common"
 )
 
+type ClientChannels struct {
+  addclient chan *Client
+  healthcheck_request chan common.Socket
+  rmclient chan *Client
+}
+
 type Client struct {
   sock common.Socket
   common_data []common.Parameter

@@ -21,17 +21,15 @@ const (
 func main() {
   parseFlags()
 
-  addworker := make(chan *Worker)
-  addclient := make(chan *Client)
-  worker_healthcheck := make(chan common.Socket)
-  client_healthcheck := make(chan common.Socket)
+  worker_channels := WorkerChannels{make(chan *Worker), make(chan common.Socket), make(chan *Worker)}
+  client_channels := ClientChannels{make(chan *Client), make(chan common.Socket), make(chan *Client)}
   
   coordinator := &Coordinator{pool: make(Pool, 0, initialWorkerCount)}
 
-  go coordinator.handleChannels(addworker, addclient, worker_healthcheck, client_healthcheck)
+  go coordinator.handleChannels(worker_channels, client_channels)
   
-  handleClientsConnections(addclient, worker_healthcheck)
-  handleWorkersConnections(addworker, client_healthcheck)
+  handleClientsConnections(client_channels)
+  handleWorkersConnections(worker_channels)
 }
 
 func parseFlags() {

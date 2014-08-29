@@ -8,7 +8,7 @@ import (
   "io"
 )
 
-func handleWorkersConnections(addworker chan<- *Worker, healthcheck_request chan<- common.Socket) {
+func handleWorkersConnections(wch WorkerChannels) {
   listener, err := net.Listen("tcp", *lwaddr)
 
   if err != nil {
@@ -24,11 +24,11 @@ func handleWorkersConnections(addworker chan<- *Worker, healthcheck_request chan
 
     sock := common.Socket{conn, make(chan bool)}
     
-    go handleWorker(sock, addworker, healthcheck_request)
+    go handleWorker(sock, wch)
   }
 }
 
-func handleWorker(sock common.Socket, addworker chan<- *Worker, healthcheck_request chan<- common.Socket) error {
+func handleWorker(sock common.Socket, wch WorkerChannels) error {
   op_type := make([]byte, 1)
 
   _, err := io.ReadFull(sock, op_type)
@@ -39,10 +39,10 @@ func handleWorker(sock common.Socket, addworker chan<- *Worker, healthcheck_requ
   optype := common.WorkerOperation(op_type[0])
   switch optype {
   case common.WInit:
-    addworker <- &Worker{sock: sock, tasks: make(chan common.Task)}
+    wch.addworker <- &Worker{sock: sock, tasks: make(chan common.Task)}
     // TODO: send response
   case common.WHealthCheck:
-    healthcheck_request <- 
+    wch.healthcheck_request <- sock
   case common.WGetTask:
   case common.WTaskCompeted:
   case common.WSendResult:

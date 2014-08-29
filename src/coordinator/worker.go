@@ -2,15 +2,17 @@ package main
 
 import (
   "../common"
-  "io"
-  "time"
-  "log"
-  "encoding/binary"
 )
 
 type WorkerInfo struct {
   pending uint32
   status common.WorkerStatus
+}
+
+type WorkerChannels struct {
+  addworker chan *Worker
+  healthcheck_request chan common.Socket
+  rmworker chan *Worker
 }
 
 type Worker struct {

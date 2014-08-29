@@ -17,15 +17,15 @@ type Coordinator struct {
   quit chan bool
 }
 
-func (c *Coordinator)handleChannels(addworker chan *Worker, addclient chan *Client, worker_healthcheck chan common.Socket, client_healthcheck chan common.Socket) {
+func (c *Coordinator)handleChannels(wch WorkerChannels, cch ClientChannels) {
 Loop:
   for {
     select {
-    case w := <- addworker: {
+    case w := <- wch.addworker: {
         heap.Push(&c.pool, *w)
         c.hash[w.sock.RemoteAddr()] = w
       }
-    case cl := <- addclient: {
+    case cl := <- cch.addclient: {
       canAddClient := c.client == nil
       if canAddClient {
         c.client = cl
@@ -33,7 +33,7 @@ Loop:
       
       cl.replyInit(canAddClient)
     }
-    case sock := <- worker_healthcheck: {
+    case sock := <- wch.healthcheck_request: {
       // TODO: add assert value,present = hash[addr]
       addr := sock.RemoteAddr()
 
@@ -44,7 +44,7 @@ Loop:
 
       go checkHealth(w, c.worker_timeout)
     }
-    case sock := <- client_healthcheck: {
+    case sock := <- cch.healthcheck_request: {
       addr := sock.RemoteAddr()
 
       cl, present := c.client, c.client != nil

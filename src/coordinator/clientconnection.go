@@ -43,6 +43,7 @@ func handleClient(sock common.Socket, cch ClientChannels) error {
   case common.CHealthCheck:
     cch.healthcheck_request <- sock
   case common.CInputParameters:
+    cch.readcommondata <- sock
   case common.CRunComputation:
   case common.CGetResult:
   }

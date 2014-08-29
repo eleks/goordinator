@@ -10,7 +10,7 @@ import (
 
 type HealthReporter interface {
   GetStatusRequestChannel() chan bool
-  GetStatus() interface {}
+  GetStatus() interface{}
   GetStatusChannel() chan interface{}
   SetHealthStatus(status byte)
   GetHealthReply() interface{}

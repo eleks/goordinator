@@ -11,8 +11,8 @@ type Coordinator struct {
   pool Pool
   client *Client
   hash map[net.Addr]*Worker
-  worker_timeout chan *HealthReporter
-  client_timeout chan *HealthReporter
+  worker_timeout chan HealthReporter
+  client_timeout chan HealthReporter
   rmworker chan *Worker
   quit chan bool
 }
@@ -59,9 +59,7 @@ func (c *Coordinator) checkHealthWorker(sock common.Socket){
     log.Fatalf("Healthcheck: worker with address %v is not registered", addr)
   }
   
-  if hr, ok := (*w).(HealthReporter); ok {  
-    go checkHealth(hr, c.worker_timeout)
-  }
+  go checkHealth(w, c.worker_timeout)
 }
 
 func (c *Coordinator) checkHealthClient(sock common.Socket) {
@@ -72,9 +70,7 @@ func (c *Coordinator) checkHealthClient(sock common.Socket) {
     log.Fatalf("Healthcheck: client with address %v is not registered", addr)
   }
 
-  if hr, ok := (*cl).(HealthReporter); ok {  
-    go checkHealth(hr, c.client_timeout)
-  }
+  go checkHealth(cl, c.client_timeout)
 }
 
 func (c *Coordinator)dispatch(task common.Task) {

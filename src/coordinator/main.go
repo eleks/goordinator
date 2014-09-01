@@ -22,14 +22,24 @@ func main() {
   parseFlags()
 
   worker_channels := WorkerChannels{make(chan *Worker), make(chan common.Socket), make(chan *Worker)}
-  client_channels := ClientChannels{make(chan *Client), make(chan common.Socket), make(chan *Client)}
+  client_channels := ClientChannels{make(chan *Client), make(chan common.Socket), make(chan common.Socket), make(chan *Client)}
   
   coordinator := &Coordinator{pool: make(Pool, 0, initialWorkerCount)}
 
-  go coordinator.handleChannels(worker_channels, client_channels)
+  go coordinator.handleWorkerChannels(worker_channels)
+  go coordinator.handleClientChannels(client_channels)
+
+  client_quit := make(chan bool)
+  worker_quit := make(chan bool)
   
-  handleClientsConnections(client_channels)
-  handleWorkersConnections(worker_channels)
+  handleClientsConnections(client_channels, client_quit)
+  handleWorkersConnections(worker_channels, worker_quit)
+
+  coordinator.quit()
+  
+  // TODO: implement emergency quit
+  <- worker_quit
+  <- client_quit
 }
 
 func parseFlags() {

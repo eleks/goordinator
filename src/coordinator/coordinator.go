@@ -13,27 +13,46 @@ type Coordinator struct {
   hash map[net.Addr]*Worker
   worker_timeout chan HealthReporter
   client_timeout chan HealthReporter
-  rmworker chan *Worker
-  quit chan bool
+  worker_quit chan bool
+  client_quit chan bool
 }
 
-func (c *Coordinator)handleChannels(wch WorkerChannels, cch ClientChannels) {
+func (c *Coordinator)handleWorkerChannels(wch WorkerChannels) {
 Loop:
   for {
     select {
     case w := <- wch.addworker: c.addWorker(w)
-    case cl := <- cch.addclient: c.addClient(cl)
     case sock := <- wch.healthcheck_request: c.checkHealthWorker(sock)
-    case sock := <- cch.healthcheck_request: c.checkHealthClient(sock)
-    case w := <- c.worker_timeout: {
+    case <- c.worker_timeout: {
       // TODO: handle worker timeout (rebalance tasks)
       // TODO: distinguish worker and client
     }
-    case <-c.quit: {
+    case <- c.worker_quit: {
       break Loop
       }
     }
   }
+}
+
+func (c *Coordinator)handleClientChannels(cch ClientChannels) {
+Loop:
+  for {
+    select {
+    case cl := <- cch.addclient: c.addClient(cl)
+    case sock := <- cch.healthcheck_request: c.checkHealthClient(sock)
+    case <- c.client_timeout: {
+      // TODO: cleanup
+    }
+    case <- c.client_quit: {
+      break Loop
+      }
+    }
+  }
+}
+
+func (c *Coordinator)quit() {
+  c.worker_quit <- true
+  c.client_quit <- true
 }
 
 func (c *Coordinator) addWorker(w *Worker) {

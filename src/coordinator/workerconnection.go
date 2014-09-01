@@ -8,13 +8,14 @@ import (
   "io"
 )
 
-func handleWorkersConnections(wch WorkerChannels) {
+func handleWorkersConnections(wch WorkerChannels, worker_quit chan bool) {
   listener, err := net.Listen("tcp", *lwaddr)
 
   if err != nil {
     log.Fatal(err)
   }
 
+  // TODO: implement break
   for {
     conn, err := listener.Accept()
     if err != nil {
@@ -26,6 +27,8 @@ func handleWorkersConnections(wch WorkerChannels) {
     
     go handleWorker(sock, wch)
   }
+
+  worker_quit <- true
 }
 
 func handleWorker(sock common.Socket, wch WorkerChannels) error {

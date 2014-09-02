@@ -61,6 +61,6 @@ const (
 )
 
 type Parameter struct {
-  Size int
+  Size uint32
   Data []byte
 }

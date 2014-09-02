@@ -28,8 +28,6 @@ func (c *Client) GetHealthReply() interface{} { return 1 }
 
 
 func (c *Client) replyInit(success bool) {
-  defer c.sock.Close()
-
   connection_status_buf := make([]byte, 1)
   if success {
     connection_status_buf[0] = 1

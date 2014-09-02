@@ -8,6 +8,7 @@ type ClientChannels struct {
   addclient chan *Client
   healthcheck_request chan common.Socket
   readcommondata chan common.Socket
+  runcomputation chan common.Socket
   rmclient chan *Client
 }
 

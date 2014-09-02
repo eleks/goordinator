@@ -2,6 +2,8 @@ package common
 
 import (
   "net"
+  "io"
+  "encoding/binary"  
 )
 
 type WorkerStatus byte
@@ -23,11 +25,8 @@ const (
 )
 
 type Task struct {
-     id int
-  // starting index and size of inner
-  // multidimensional array of data
-  index []int
-   size []int
+  ID int
+  Parameters InputParameters
 }
 
 type Socket struct {
@@ -63,4 +62,38 @@ const (
 type Parameter struct {
   Size uint32
   Data []byte
+}
+
+type InputParameters []*Parameter
+
+func ReadParameters(sock Socket) (parameters InputParameters, n int, err error) {
+  var pcount uint32
+
+  // number of parameters
+  err = binary.Read(sock, binary.BigEndian, &pcount)
+  // TODO: handle error
+
+  var nbytes, i uint32
+  var nread int
+
+  parameters = make(InputParameters, pcount, pcount)
+  
+  for i = 0; i < pcount; i++ {
+    // parameter size : uint32
+    err = binary.Read(sock, binary.BigEndian, &nbytes)
+        
+    data := make([]byte, nbytes, nbytes)
+    nread, err = io.ReadFull(sock, data)
+
+    // TODO: handle errors here
+    if uint32(nread) == nbytes && err == nil {
+      p := Parameter{nbytes, data}
+      parameters[i] = &p
+      n++
+    } else {
+      parameters[i] = nil
+    }
+  }
+
+  return parameters, n, err
 }

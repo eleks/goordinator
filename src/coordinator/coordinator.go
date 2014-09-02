@@ -4,18 +4,18 @@ import (
   "../common"
   "net"
   "log"
-  "io"
-  "container/heap"
   "encoding/binary"
+  "container/heap"
 )
 
-type CommonParameters []*common.Parameter
+
 
 type Coordinator struct {
   pool Pool
   client *Client
-  commondata CommonParameters
+  commondata common.InputParameters
   hash map[net.Addr]*Worker
+  tasks chan common.Task
   worker_timeout chan HealthReporter
   client_timeout chan HealthReporter
   worker_quit chan bool
@@ -46,6 +46,7 @@ ClientLoop:
     case cl := <- cch.addclient: c.addClient(cl)
     case sock := <- cch.healthcheck_request: c.checkHealthClient(sock)
     case sock := <- cch.readcommondata: c.readCommonData(sock)
+    case sock := <- cch.runcomputation: c.runComputation(sock)
     case <- c.client_timeout: {
       // TODO: cleanup
     }
@@ -103,28 +104,28 @@ func (c *Coordinator) checkHealthClient(sock common.Socket) {
 func (c *Coordinator) readCommonData(sock common.Socket) {
   defer sock.Close()
 
-  var pcount uint32
+  parameters, n, err := common.ReadParameters(sock)
+  if err != nil {
+    log.Println(err)
+  }
 
-  // number of parameters
-  // each parameter - size + byte buffer
-  binary.Read(sock, binary.BigEndian, &pcount)
+  c.commondata = parameters
+}
 
-  var nbytes, i uint32
-  
-  for i = 0 ; i < pcount; i++ {
-    // read parameter
+func (c *Coordinator) runComputation(sock common.Socket) {
+  // read all tasks parameters and create tasks
+  var tcount, i uint32
+  err := binary.Read(sock, binary.BigEndian, &tcount)
+  // TODO: handle error
 
-    binary.Read(sock, binary.BigEndian, &nbytes)
-        
-    data := make([]byte, nbytes, nbytes)
-    nread, err := io.ReadFull(sock, data)
+  task_id := 0
 
-    // TODO: handle errors here
-    if uint32(nread) == nbytes && err == nil {
-      p := common.Parameter{nbytes, data}
-      c.commondata[i] = &p
-    } else {
-      log.Print(err)
+  for i = 0; i < tcount; i++ {
+    parameters, n, err := common.ReadParameters(sock)
+
+    if n == len(parameters) && err == nil {
+      c.tasks <- common.Task{task_id, parameters}
+      task_id++
     }
   }
 }

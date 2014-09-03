@@ -13,9 +13,10 @@ import (
 type Coordinator struct {
   pool Pool
   client *Client
-  commondata common.InputParameters
+  commondata common.DataArray
   hash map[net.Addr]*Worker
   tasks chan common.Task
+  tasks_count uint32
   worker_timeout chan HealthReporter
   client_timeout chan HealthReporter
   worker_quit chan bool
@@ -28,6 +29,8 @@ WorkerLoop:
     select {
     case w := <- wch.addworker: c.addWorker(w)
     case sock := <- wch.healthcheck_request: c.checkHealthWorker(sock)
+    case task := <- c.tasks: c.dispatch(task)
+    case sock := <- wch.gettask_request: c.sendNextTaskToWorker(sock)
     case <- c.worker_timeout: {
       // TODO: handle worker timeout (rebalance tasks)
       // TODO: distinguish worker and client
@@ -65,6 +68,8 @@ func (c *Coordinator)quit() {
 func (c *Coordinator) addWorker(w *Worker) {
   heap.Push(&c.pool, *w)
   c.hash[w.sock.RemoteAddr()] = w
+
+  go w.doWork()
 }
 
 func (c *Coordinator) addClient(cl *Client) {
@@ -126,16 +131,45 @@ func (c *Coordinator) runComputation(sock common.Socket) {
     if n == len(parameters) && err == nil {
       c.tasks <- common.Task{task_id, parameters}
       task_id++
+    } else {
+      log.Fatal(err)
     }
   }
+
+  c.tasks_count = tcount
+}
+
+func (c *Coordinator) sendNextTaskToWorker(sock common.Socket) {
+  addr := sock.RemoteAddr()
+
+  w, present := c.hash[addr]
+  if !present {
+    log.Fatalf("sendNextTask: worker %v is not registered", addr)
+  }
+  
+  go w.sendNextTask(sock)
 }
 
 func (c *Coordinator)dispatch(task common.Task) {
-  
+  w := heap.Pop(&c.pool).(*Worker)
+
+  if w.pending < w.capacity {
+    w.tasks <- task
+    w.pending++    
+  } else {
+    // add same task again
+    go func() {
+      c.tasks <- task
+    }()
+  }
+
+  heap.Push(&c.pool, w)
 }
 
 func (c *Coordinator)broadcast(task common.Task) {
-  
+  for _, w := range c.pool {
+    w.tasks <- task
+  }
 }
 
 func (c *Coordinator)completed(w *Worker) {

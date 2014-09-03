@@ -47,6 +47,7 @@ func handleWorker(sock common.Socket, wch WorkerChannels) error {
   case common.WHealthCheck:
     wch.healthcheck_request <- sock
   case common.WGetTask:
+    wch.gettask_request <- sock
   case common.WTaskCompeted:
   case common.WSendResult:
   }

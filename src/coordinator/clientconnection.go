@@ -48,6 +48,7 @@ func handleClient(sock common.Socket, cch ClientChannels) error {
   case common.CInputParameters:
     cch.readcommondata <- sock
   case common.CRunComputation:
+    cch.runcomputation <- sock
   case common.CGetResult:
   }
 

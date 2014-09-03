@@ -2,6 +2,7 @@ package main
 
 import (
   "../common"
+  "encoding/binary"
 )
 
 type WorkerInfo struct {
@@ -12,13 +13,16 @@ type WorkerInfo struct {
 type WorkerChannels struct {
   addworker chan *Worker
   healthcheck_request chan common.Socket
+  gettask_request chan common.Socket
   rmworker chan *Worker
 }
 
 type Worker struct {
   index int
   sock common.Socket
+  // buffered channel (buffer size is capacity)
   tasks chan common.Task
+  stop chan bool
   // buffered channel operates with common.WorkerInfo
   info chan interface{}
   // buffered channel
@@ -71,4 +75,25 @@ func (p *Pool) Pop() interface{} {
   return w
 }
 
+func (w *Worker) doWork() {
+Loop:
+  for {
+    select {
+    case <- w.stop:
+      break Loop
+    }
+  }
+}
 
+func (w *Worker) sendNextTask(sock common.Socket) error {
+  task := <- w.tasks
+
+  err := binary.Write(sock, binary.BigEndian, task.ID)
+  // TODO: handle error
+
+  if err == nil {
+    err = common.WriteParameters(sock, task.Parameters)
+  }
+
+  return err
+}

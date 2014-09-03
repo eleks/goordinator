@@ -26,7 +26,7 @@ const (
 
 type Task struct {
   ID int
-  Parameters InputParameters
+  Parameters DataArray
 }
 
 type Socket struct {
@@ -59,14 +59,14 @@ const (
   CGetResult
 )
 
-type Parameter struct {
+type GenericData struct {
   Size uint32
   Data []byte
 }
 
-type InputParameters []*Parameter
+type DataArray []*GenericData
 
-func ReadParameters(sock Socket) (parameters InputParameters, n int, err error) {
+func ReadParameters(sock Socket) (darray DataArray, n int, err error) {
   var pcount uint32
 
   // number of parameters
@@ -76,7 +76,7 @@ func ReadParameters(sock Socket) (parameters InputParameters, n int, err error) 
   var nbytes, i uint32
   var nread int
 
-  parameters = make(InputParameters, pcount, pcount)
+  darray = make(DataArray, pcount, pcount)
   
   for i = 0; i < pcount; i++ {
     // parameter size : uint32
@@ -87,13 +87,36 @@ func ReadParameters(sock Socket) (parameters InputParameters, n int, err error) 
 
     // TODO: handle errors here
     if uint32(nread) == nbytes && err == nil {
-      p := Parameter{nbytes, data}
-      parameters[i] = &p
+      p := GenericData{nbytes, data}
+      darray[i] = &p
       n++
     } else {
-      parameters[i] = nil
+      darray[i] = nil
     }
   }
 
-  return parameters, n, err
+  return darray, n, err
+}
+
+func WriteParameters(sock Socket, darray DataArray) error {
+  err := binary.Write(sock, binary.BigEndian, uint32(len(darray)))
+  // TODO: handle errors
+
+  if err != nil {
+    return err
+  }
+
+Loop:
+  for _, p := range darray {
+    err = binary.Write(sock, binary.BigEndian, p.Size)
+    if err == nil {
+      err = binary.Write(sock, binary.BigEndian, p.Data)
+    }
+
+    if err != nil {
+      break Loop
+    }
+  }
+
+  return err
 }

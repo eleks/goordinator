@@ -66,7 +66,7 @@ type GenericData struct {
 
 type DataArray []*GenericData
 
-func ReadParameters(sock Socket) (darray DataArray, n int, err error) {
+func ReadDataArray(sock Socket) (darray DataArray, n int, err error) {
   var pcount uint32
 
   // number of parameters
@@ -98,7 +98,7 @@ func ReadParameters(sock Socket) (darray DataArray, n int, err error) {
   return darray, n, err
 }
 
-func WriteParameters(sock Socket, darray DataArray) error {
+func WriteDataArray(sock Socket, darray DataArray) error {
   err := binary.Write(sock, binary.BigEndian, uint32(len(darray)))
   // TODO: handle errors
 

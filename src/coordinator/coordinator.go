@@ -13,10 +13,8 @@ import (
 type Coordinator struct {
   pool Pool
   client *Client
-  commondata common.DataArray
   hash map[net.Addr]*Worker
   tasks chan common.Task
-  tasks_count uint32
   worker_timeout chan HealthReporter
   client_timeout chan HealthReporter
   worker_quit chan bool
@@ -109,12 +107,12 @@ func (c *Coordinator) checkHealthClient(sock common.Socket) {
 func (c *Coordinator) readCommonData(sock common.Socket) {
   defer sock.Close()
 
-  parameters, n, err := common.ReadParameters(sock)
+  parameters, n, err := common.ReadDataArray(sock)
   if err != nil {
     log.Println(err)
   }
 
-  c.commondata = parameters
+  c.client.commondata = parameters
 }
 
 func (c *Coordinator) runComputation(sock common.Socket) {
@@ -126,7 +124,7 @@ func (c *Coordinator) runComputation(sock common.Socket) {
   task_id := 0
 
   for i = 0; i < tcount; i++ {
-    parameters, n, err := common.ReadParameters(sock)
+    parameters, n, err := common.ReadDataArray(sock)
 
     if n == len(parameters) && err == nil {
       c.tasks <- common.Task{task_id, parameters}
@@ -136,7 +134,7 @@ func (c *Coordinator) runComputation(sock common.Socket) {
     }
   }
 
-  c.tasks_count = tcount
+  c.client.tasks_count = tcount
 }
 
 func (c *Coordinator) sendNextTaskToWorker(sock common.Socket) {

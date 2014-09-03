@@ -14,18 +14,26 @@ type ClientChannels struct {
 
 type Client struct {
   sock common.Socket
-  common_data []common.Parameter
+  commondata common.DataArray
+  // buffered channel operates with int32
+  info chan interface{}
+  // buffered channel
+  getInfo chan bool
+
+  tasks_count uint32
+  done_tasks_count uint32
+
   status common.ClientStatus
 }
 
 func (c *Client) CloseSock() { c.sock.Close() }
 func (c *Client) GetSock() common.Socket { return c.sock }
 
-func (c *Client) GetStatusRequestChannel() chan bool { return make(chan bool) }
+func (c *Client) GetStatusRequestChannel() chan bool { return c.getInfo }
 func (c *Client) GetStatus() interface{} { return c.status }
-func (c *Client) GetStatusChannel() chan interface{} { return make(chan interface {}) }
+func (c *Client) GetStatusChannel() chan interface{} { return c.info }
 func (c *Client) SetHealthStatus(status byte) { c.status = common.ClientStatus(status) }
-func (c *Client) GetHealthReply() interface{} { return 1 }
+func (c *Client) GetHealthReply() interface{} { return uint32(c.done_tasks_count * 100 / c.tasks_count) }
 
 
 func (c *Client) replyInit(success bool) {

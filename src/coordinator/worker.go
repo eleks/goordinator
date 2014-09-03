@@ -92,7 +92,7 @@ func (w *Worker) sendNextTask(sock common.Socket) error {
   // TODO: handle error
 
   if err == nil {
-    err = common.WriteParameters(sock, task.Parameters)
+    err = common.WriteDataArray(sock, task.Parameters)
   }
 
   return err

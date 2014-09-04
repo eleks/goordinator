@@ -2,6 +2,7 @@ package main
 
 import (
   "../common"
+  "log"
 )
 
 type ClientChannels struct {
@@ -37,6 +38,8 @@ func (c *Client) GetHealthReply() interface{} { return uint32(c.done_tasks_count
 
 
 func (c *Client) replyInit(success bool) {
+  log.Printf("Replying to client. Connection was successful: %v\n", success)
+  
   connection_status_buf := make([]byte, 1)
   if success {
     connection_status_buf[0] = 1

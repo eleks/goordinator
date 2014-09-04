@@ -32,6 +32,8 @@ func handleClientsConnections(cch ClientChannels, client_quit chan bool) {
 }
 
 func handleClient(sock common.Socket, cch ClientChannels) error {
+  log.Printf("Client connected from %v\n", sock.RemoteAddr())
+  
   op_type := make([]byte, 1)
 
   _, err := io.ReadFull(sock, op_type)
@@ -52,6 +54,9 @@ func handleClient(sock common.Socket, cch ClientChannels) error {
   case common.CGetResult:
   }
 
+  log.Println("Waiting for client connection to finish")
   <-sock.Done
+  log.Printf("Client disconnected from %v\n", sock.RemoteAddr())
+  
   return nil
 }

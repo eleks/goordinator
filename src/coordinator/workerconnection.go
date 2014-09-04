@@ -32,6 +32,8 @@ func handleWorkersConnections(wch WorkerChannels, worker_quit chan bool) {
 }
 
 func handleWorker(sock common.Socket, wch WorkerChannels) error {
+  log.Printf("Worker connected from %v\n", sock.RemoteAddr())
+  
   op_type := make([]byte, 1)
 
   _, err := io.ReadFull(sock, op_type)
@@ -53,7 +55,9 @@ func handleWorker(sock common.Socket, wch WorkerChannels) error {
   }
 
   // wait until socket is processed
+  
   <-sock.Done
+  log.Printf("Worker disconnected from %v\n", sock.RemoteAddr())
   return nil
 }
 

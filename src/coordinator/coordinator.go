@@ -8,8 +8,6 @@ import (
   "container/heap"
 )
 
-
-
 type Coordinator struct {
   pool Pool
   client *Client
@@ -22,6 +20,9 @@ type Coordinator struct {
 }
 
 func (c *Coordinator)handleWorkerChannels(wch WorkerChannels) {
+  log.Println("Coordinator: worker channels handling started")
+  defer log.Println("Coordinator: worker channels handling finished")
+  
 WorkerLoop:
   for {
     select {
@@ -41,6 +42,9 @@ WorkerLoop:
 }
 
 func (c *Coordinator)handleClientChannels(cch ClientChannels) {
+  log.Println("Coordinator: worker channels handling started")
+  defer log.Println("Coordinator: worker channels handling finished")
+  
 ClientLoop:
   for {
     select {
@@ -59,11 +63,14 @@ ClientLoop:
 }
 
 func (c *Coordinator)quit() {
+  log.Println("Coordinator: posting quit signal to worker and client quit channels")
   c.worker_quit <- true
   c.client_quit <- true
 }
 
 func (c *Coordinator) addWorker(w *Worker) {
+  log.Printf("Coordinator: add worker with remote address %v \n", w.sock.RemoteAddr())
+  
   heap.Push(&c.pool, *w)
   c.hash[w.sock.RemoteAddr()] = w
 
@@ -72,6 +79,8 @@ func (c *Coordinator) addWorker(w *Worker) {
 
 func (c *Coordinator) addClient(cl *Client) {
   defer cl.CloseSock()
+
+  log.Printf("Coordinator: add client with remote address %v \n", cl.sock.RemoteAddr())
   
   canAddClient := c.client == nil
   if canAddClient {
@@ -85,6 +94,8 @@ func (c *Coordinator) checkHealthWorker(sock common.Socket){
   // TODO: add assert value,present = hash[addr]
   addr := sock.RemoteAddr()
 
+  log.Printf("Worker healthcheck request from address: %v\n", addr)
+
   w, present := c.hash[addr]
   if !present {
     log.Fatalf("Healthcheck: worker with address %v is not registered", addr)
@@ -96,6 +107,8 @@ func (c *Coordinator) checkHealthWorker(sock common.Socket){
 func (c *Coordinator) checkHealthClient(sock common.Socket) {
   addr := sock.RemoteAddr()
 
+  log.Printf("Client healthcheck request from address: %v\n", addr)
+
   cl, present := c.client, c.client != nil
   if !present {
     log.Fatalf("Healthcheck: client with address %v is not registered", addr)
@@ -106,8 +119,10 @@ func (c *Coordinator) checkHealthClient(sock common.Socket) {
 
 func (c *Coordinator) readCommonData(sock common.Socket) {
   defer sock.Close()
+  log.Println("Reading common data from client")
+  defer log.Println("Common data has been read")
 
-  parameters, n, err := common.ReadDataArray(sock)
+  parameters, _, err := common.ReadDataArray(sock)
   if err != nil {
     log.Println(err)
   }
@@ -116,10 +131,17 @@ func (c *Coordinator) readCommonData(sock common.Socket) {
 }
 
 func (c *Coordinator) runComputation(sock common.Socket) {
+  log.Println("Coordinator: reading specific parameters")
+
   // read all tasks parameters and create tasks
   var tcount, i uint32
   err := binary.Read(sock, binary.BigEndian, &tcount)
   // TODO: handle error
+  if err != nil {
+    log.Println(err)
+  }
+
+  log.Printf("Coordinator: going to receive %v tasks\n", tcount)
 
   task_id := 0
 
@@ -165,6 +187,7 @@ func (c *Coordinator)dispatch(task common.Task) {
 }
 
 func (c *Coordinator)broadcast(task common.Task) {
+  log.Println("Broadcasting task between workers")
   for _, w := range c.pool {
     w.tasks <- task
   }

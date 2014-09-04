@@ -3,6 +3,7 @@ package main
 import (
   "../common"
   "encoding/binary"
+  "log"
 )
 
 type WorkerInfo struct {
@@ -76,6 +77,7 @@ func (p *Pool) Pop() interface{} {
 }
 
 func (w *Worker) doWork() {
+  log.Printf("Worker with index %v started working", w.index)
 Loop:
   for {
     select {

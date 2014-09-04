@@ -12,6 +12,7 @@ type Coordinator struct {
   pool Pool
   client *Client
   hash map[net.Addr]*Worker
+  // buffered
   tasks chan common.Task
   worker_timeout chan HealthReporter
   client_timeout chan HealthReporter
@@ -30,10 +31,7 @@ WorkerLoop:
     case sock := <- wch.healthcheck_request: c.checkHealthWorker(sock)
     case task := <- c.tasks: c.dispatch(task)
     case sock := <- wch.gettask_request: c.sendNextTaskToWorker(sock)
-    case <- c.worker_timeout: {
-      // TODO: handle worker timeout (rebalance tasks)
-      // TODO: distinguish worker and client
-    }
+    case hr := <- c.worker_timeout: c.workerTimeoutOccured(hr)
     case <- c.worker_quit: {
       break WorkerLoop
       }
@@ -168,6 +166,23 @@ func (c *Coordinator) sendNextTaskToWorker(sock common.Socket) {
   }
   
   go w.sendNextTask(sock)
+}
+
+func (c *Coordinator) workerTimeoutOccured(hr HealthReporter) {
+  addr := hr.GetSock().RemoteAddr()
+  w, present := c.hash[addr]
+  if !present {
+    log.Fatal("Worker is not present in coordinator pool")
+  }
+
+  if w.pending != 0 {
+    // rebalance all existing tasks
+    for _, task := range w.active_tasks {
+      go func() { c.tasks <- *task }()
+    }
+  }
+
+  delete(c.hash, addr)
 }
 
 func (c *Coordinator)dispatch(task common.Task) {

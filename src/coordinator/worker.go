@@ -28,6 +28,7 @@ type Worker struct {
   info chan interface{}
   // buffered channel
   getInfo chan bool
+  active_tasks map[int]*common.Task
   // number of pending tasks
   pending uint32
   capacity uint32
@@ -89,6 +90,13 @@ Loop:
 
 func (w *Worker) sendNextTask(sock common.Socket) error {
   task := <- w.tasks
+
+  _, ok := w.active_tasks[task.ID]
+  if !ok {
+    w.active_tasks[task.ID] = &task
+  } else {
+    log.Fatalf("Task with ID %v is already sent to this worker", task.ID)
+  }
 
   err := binary.Write(sock, binary.BigEndian, task.ID)
   // TODO: handle error

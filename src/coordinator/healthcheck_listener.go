@@ -9,9 +9,9 @@ import (
 )
 
 type HealthReporter interface {
-  GetStatusRequestChannel() chan bool
   GetStatus() interface{}
-  GetStatusChannel() chan interface{}
+  GetStatusChannel() chan chan interface{}
+
   SetHealthStatus(status byte)
   GetHealthReply() interface{}
 
@@ -56,7 +56,6 @@ func checkHealth(hr HealthReporter, timeout chan HealthReporter) {
     }
   }()
 
-  request_status_channel := hr.GetStatusRequestChannel()
   status_channel := hr.GetStatusChannel()
 
   Loop:
@@ -66,7 +65,7 @@ func checkHealth(hr HealthReporter, timeout chan HealthReporter) {
       hr.SetHealthStatus(status)
       reply <- hr.GetHealthReply()
     }
-    case <- request_status_channel: status_channel <- hr.GetStatus()
+    case hchannel := <- status_channel: hchannel <- hr.GetStatus()
     case <- time.After(1 * time.Second): {
       // TODO: change timeout
       done <- true

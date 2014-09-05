@@ -6,11 +6,6 @@ import (
   "log"
 )
 
-type WorkerInfo struct {
-  pending uint32
-  status common.WorkerStatus
-}
-
 type WorkerChannels struct {
   addworker chan *Worker
   healthcheck_request chan common.Socket
@@ -25,24 +20,25 @@ type Worker struct {
   tasks chan common.Task
   stop chan bool
   // buffered channel operates with common.WorkerInfo
-  info chan interface{}
-  // buffered channel
-  getInfo chan bool
+  cinfo chan interface{}
+  ccinfo chan chan interface{}
   active_tasks map[int]*common.Task
-  // number of pending tasks
-  pending uint32
-  capacity uint32
+  // if positive means number of pending tasks 
+  // else means number of task to retrieve from worker
+  pending int
+  capacity int
   status common.WorkerStatus
 }
 
 func (w *Worker) CloseSock() { w.sock.Close() }
 func (w *Worker) GetSock() common.Socket { return w.sock }
 
-func (w *Worker) GetStatusRequestChannel() chan bool { return w.getInfo }
 func (w *Worker) GetStatus() interface{} { return w.status }
-func (w *Worker) GetStatusChannel() chan interface{} { return w.info }
+func (w *Worker) GetStatusChannel() chan chan interface{} { return w.ccinfo }
+
 func (w *Worker) SetHealthStatus(status byte) { w.status = common.WorkerStatus(status) }
 func (w *Worker) GetHealthReply() interface{} { return w.pending }
+
 
 type Pool []*Worker
 
@@ -75,6 +71,12 @@ func (p *Pool) Pop() interface{} {
   w := a[len(a) - 1]
   w.index = -1
   return w
+}
+
+func (w *Worker) RetrieveStatus() common.WorkerStatus {
+  w.ccinfo <- w.cinfo
+  status := <- w.cinfo
+  return status.(common.WorkerStatus)
 }
 
 func (w *Worker) doWork() {

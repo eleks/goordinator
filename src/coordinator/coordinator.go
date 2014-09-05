@@ -29,7 +29,7 @@ WorkerLoop:
     select {
     case w := <- wch.addworker: c.addWorker(w)
     case sock := <- wch.healthcheck_request: c.checkHealthWorker(sock)
-    case task := <- c.tasks: c.dispatch(task)
+    case new_task := <- c.tasks: c.dispatch(new_task)
     case sock := <- wch.gettask_request: c.sendNextTaskToWorker(sock)
     case hr := <- c.worker_timeout: c.workerTimeoutOccured(hr)
     case <- c.worker_quit: {
@@ -175,7 +175,7 @@ func (c *Coordinator) workerTimeoutOccured(hr HealthReporter) {
     log.Fatal("Worker is not present in coordinator pool")
   }
 
-  if w.pending != 0 {
+  if w.pending > 0 {
     // rebalance all existing tasks
     for _, task := range w.active_tasks {
       go func() { c.tasks <- *task }()
@@ -188,14 +188,14 @@ func (c *Coordinator) workerTimeoutOccured(hr HealthReporter) {
 func (c *Coordinator)dispatch(task common.Task) {
   w := heap.Pop(&c.pool).(*Worker)
 
+  // TODO: add assert pending >= 0
+  
   if w.pending < w.capacity {
     w.tasks <- task
-    w.pending++    
+    w.pending++
   } else {
     // add same task again
-    go func() {
-      c.tasks <- task
-    }()
+    go func() { c.tasks <- task }()
   }
 
   heap.Push(&c.pool, w)

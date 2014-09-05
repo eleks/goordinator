@@ -66,11 +66,16 @@ type GenericData struct {
 
 type DataArray []*GenericData
 
-func ReadDataArray(sock Socket) (darray DataArray, n int, err error) {
+type ComputationResult struct {
+  GenericData
+  ID int
+}
+
+func ReadDataArray(r io.Reader) (darray DataArray, n int, err error) {
   var pcount uint32
 
   // number of parameters
-  err = binary.Read(sock, binary.BigEndian, &pcount)
+  err = binary.Read(r, binary.BigEndian, &pcount)
   // TODO: handle error
 
   var nbytes, i uint32
@@ -80,10 +85,10 @@ func ReadDataArray(sock Socket) (darray DataArray, n int, err error) {
   
   for i = 0; i < pcount; i++ {
     // parameter size : uint32
-    err = binary.Read(sock, binary.BigEndian, &nbytes)
+    err = binary.Read(r, binary.BigEndian, &nbytes)
         
     data := make([]byte, nbytes, nbytes)
-    nread, err = io.ReadFull(sock, data)
+    nread, err = io.ReadFull(r, data)
 
     // TODO: handle errors here
     if uint32(nread) == nbytes && err == nil {
@@ -98,8 +103,8 @@ func ReadDataArray(sock Socket) (darray DataArray, n int, err error) {
   return darray, n, err
 }
 
-func WriteDataArray(sock Socket, darray DataArray) error {
-  err := binary.Write(sock, binary.BigEndian, uint32(len(darray)))
+func WriteDataArray(w io.Writer, darray DataArray) error {
+  err := binary.Write(w, binary.BigEndian, uint32(len(darray)))
   // TODO: handle errors
 
   if err != nil {
@@ -108,9 +113,9 @@ func WriteDataArray(sock Socket, darray DataArray) error {
 
 Loop:
   for _, p := range darray {
-    err = binary.Write(sock, binary.BigEndian, p.Size)
+    err = binary.Write(w, binary.BigEndian, p.Size)
     if err == nil {
-      err = binary.Write(sock, binary.BigEndian, p.Data)
+      err = binary.Write(w, binary.BigEndian, p.Data)
     }
 
     if err != nil {

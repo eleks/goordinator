@@ -66,6 +66,7 @@ func setupLogging() (f *os.File, err error) {
   }
 
   log.SetOutput(f)
+  log.Println("------------------------------")
   log.Println("Coordinator log started")
   
   return f, err

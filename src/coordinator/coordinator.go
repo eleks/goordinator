@@ -14,10 +14,10 @@ type Coordinator struct {
   hash map[net.Addr]*Worker
   // buffered
   tasks chan common.Task
-  worker_timeout chan HealthReporter
-  client_timeout chan HealthReporter
-  worker_quit chan bool
-  client_quit chan bool
+  workerTimeout chan HealthReporter
+  clientTimeout chan HealthReporter
+  workerQuit chan bool
+  clientQuit chan bool
 }
 
 func (c *Coordinator)handleWorkerChannels(wch WorkerChannels) {
@@ -28,11 +28,11 @@ WorkerLoop:
   for {
     select {
     case w := <- wch.addworker: c.addWorker(w)
-    case sock := <- wch.healthcheck_request: c.checkHealthWorker(sock)
-    case new_task := <- c.tasks: c.dispatch(new_task)
-    case sock := <- wch.gettask_request: c.sendNextTaskToWorker(sock)
-    case hr := <- c.worker_timeout: c.workerTimeoutOccured(hr)
-    case <- c.worker_quit: {
+    case sock := <- wch.healthcheckRequest: c.checkHealthWorker(sock)
+    case newTask := <- c.tasks: c.dispatch(newTask)
+    case sock := <- wch.gettaskRequest: c.sendNextTaskToWorker(sock)
+    case hr := <- c.workerTimeout: c.workerTimeoutOccured(hr)
+    case <- c.workerQuit: {
       break WorkerLoop
       }
     }
@@ -47,13 +47,13 @@ ClientLoop:
   for {
     select {
     case cl := <- cch.addclient: c.addClient(cl)
-    case sock := <- cch.healthcheck_request: c.checkHealthClient(sock)
+    case sock := <- cch.healthcheckRequest: c.checkHealthClient(sock)
     case sock := <- cch.readcommondata: c.readCommonData(sock)
     case sock := <- cch.runcomputation: c.runComputation(sock)
-    case <- c.client_timeout: {
+    case <- c.clientTimeout: {
       // TODO: cleanup
     }
-    case <- c.client_quit: {
+    case <- c.clientQuit: {
       break ClientLoop
       }
     }
@@ -62,8 +62,8 @@ ClientLoop:
 
 func (c *Coordinator)quit() {
   log.Println("Coordinator: posting quit signal to worker and client quit channels")
-  c.worker_quit <- true
-  c.client_quit <- true
+  c.workerQuit <- true
+  c.clientQuit <- true
 }
 
 func (c *Coordinator) addWorker(w *Worker) {
@@ -99,7 +99,7 @@ func (c *Coordinator) checkHealthWorker(sock common.Socket){
     log.Fatalf("Healthcheck: worker with address %v is not registered", addr)
   }
   
-  go checkHealth(w, c.worker_timeout)
+  go checkHealth(w, c.workerTimeout)
 }
 
 func (c *Coordinator) checkHealthClient(sock common.Socket) {
@@ -112,7 +112,7 @@ func (c *Coordinator) checkHealthClient(sock common.Socket) {
     log.Fatalf("Healthcheck: client with address %v is not registered", addr)
   }
 
-  go checkHealth(cl, c.client_timeout)
+  go checkHealth(cl, c.clientTimeout)
 }
 
 func (c *Coordinator) readCommonData(sock common.Socket) {
@@ -141,20 +141,20 @@ func (c *Coordinator) runComputation(sock common.Socket) {
 
   log.Printf("Coordinator: going to receive %v tasks\n", tcount)
 
-  task_id := 0
+  taskID := 0
 
   for i = 0; i < tcount; i++ {
     parameters, n, err := common.ReadDataArray(sock)
 
     if n == len(parameters) && err == nil {
-      c.tasks <- common.Task{task_id, parameters}
-      task_id++
+      c.tasks <- common.Task{taskID, parameters}
+      taskID++
     } else {
       log.Fatal(err)
     }
   }
 
-  c.client.tasks_count = tcount
+  c.client.tasksCount = tcount
 }
 
 func (c *Coordinator) sendNextTaskToWorker(sock common.Socket) {
@@ -177,7 +177,7 @@ func (c *Coordinator) workerTimeoutOccured(hr HealthReporter) {
 
   if w.pending > 0 {
     // rebalance all existing tasks
-    for _, task := range w.active_tasks {
+    for _, task := range w.activeTasks {
       go func() { c.tasks <- *task }()
     }
   }

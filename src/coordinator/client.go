@@ -7,7 +7,7 @@ import (
 
 type ClientChannels struct {
   addclient chan *Client
-  healthcheck_request chan common.Socket
+  healthcheckRequest chan common.Socket
   readcommondata chan common.Socket
   runcomputation chan common.Socket
   rmclient chan *Client
@@ -19,8 +19,8 @@ type Client struct {
   // buffered channel operates with int32
   info chan chan interface{}
 
-  tasks_count uint32
-  done_tasks_count uint32
+  tasksCount uint32
+  doneTasksCount uint32
 
   status common.ClientStatus
 }
@@ -38,14 +38,14 @@ func (c *Client) GetHealthReply() interface{} { return uint32(c.done_tasks_count
 func (c *Client) replyInit(success bool) {
   log.Printf("Replying to client. Connection was successful: %v\n", success)
   
-  connection_status_buf := make([]byte, 1)
+  statusBuf := make([]byte, 1)
   if success {
-    connection_status_buf[0] = 1
+    statusBuf[0] = 1
   } else {
-    connection_status_buf[0] = 0
+    statusBuf[0] = 0
   }
 
-  c.sock.Write(connection_status_buf)
+  c.sock.Write(statusBuf)
 }
 
 func (c *Client) RetrieveStatus() common.ClientStatus {

@@ -37,17 +37,12 @@ func main() {
   go coordinator.handleWorkerChannels(worker_channels)
   go coordinator.handleClientChannels(client_channels)
 
-  client_quit := make(chan bool)
-  worker_quit := make(chan bool)
-  
-  handleClientsConnections(client_channels, client_quit)
-  handleWorkersConnections(worker_channels, worker_quit)
+  go handleClientsConnections(client_channels)
+  go handleWorkersConnections(worker_channels)
 
-  coordinator.quit()
+  // TODO: wait for sending all tasks to client
   
-  // TODO: implement emergency quit
-  <- worker_quit
-  <- client_quit
+  coordinator.quit()
 }
 
 func parseFlags() {

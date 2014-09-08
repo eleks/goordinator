@@ -27,24 +27,24 @@ func checkHealth(hr HealthReporter, timeout chan HealthReporter) {
   done := make(chan bool, 1)
 
   go func() {
-    input_buf := make([]byte, 1)
+    inputBuf := make([]byte, 1)
     sock := hr.GetSock()
 
   healthLoop:
     for {      
-      _, err := io.ReadFull(sock, input_buf)
+      _, err := io.ReadFull(sock, inputBuf)
       if err != nil {
         // TODO: send errors to channel
         log.Fatal(err)
         break healthLoop
       }
 
-      health_status := input_buf[0]
-      healthcheck <- health_status
+      healthStatus := inputBuf[0]
+      healthcheck <- healthStatus
 
       select {
-      case health_reply := <- reply: {
-        err := binary.Write(sock, binary.BigEndian, health_reply)
+      case healthReply := <- reply: {
+        err := binary.Write(sock, binary.BigEndian, healthReply)
         if err != nil {
           // TODO: send errors to channel
           log.Fatal(err)
@@ -56,7 +56,7 @@ func checkHealth(hr HealthReporter, timeout chan HealthReporter) {
     }
   }()
 
-  status_channel := hr.GetStatusChannel()
+  statusChannel := hr.GetStatusChannel()
 
   Loop:
   for {
@@ -65,7 +65,7 @@ func checkHealth(hr HealthReporter, timeout chan HealthReporter) {
       hr.SetHealthStatus(status)
       reply <- hr.GetHealthReply()
     }
-    case hchannel := <- status_channel: hchannel <- hr.GetStatus()
+    case hchannel := <- statusChannel: hchannel <- hr.GetStatus()
     case <- time.After(1 * time.Second): {
       // TODO: change timeout
       done <- true

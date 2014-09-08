@@ -8,8 +8,8 @@ import (
 
 type WorkerChannels struct {
   addworker chan *Worker
-  healthcheck_request chan common.Socket
-  gettask_request chan common.Socket
+  healthcheckRequest chan common.Socket
+  gettaskRequest chan common.Socket
   rmworker chan *Worker
 }
 
@@ -22,7 +22,7 @@ type Worker struct {
   // buffered channel operates with common.WorkerInfo
   cinfo chan interface{}
   ccinfo chan chan interface{}
-  active_tasks map[int]*common.Task
+  activeTasks map[int]*common.Task
   // if positive means number of pending tasks 
   // else means number of task to retrieve from worker
   pending int
@@ -93,9 +93,9 @@ Loop:
 func (w *Worker) sendNextTask(sock common.Socket) error {
   task := <- w.tasks
 
-  _, ok := w.active_tasks[task.ID]
+  _, ok := w.activeTasks[task.ID]
   if !ok {
-    w.active_tasks[task.ID] = &task
+    w.activeTasks[task.ID] = &task
   } else {
     log.Fatalf("Task with ID %v is already sent to this worker", task.ID)
   }

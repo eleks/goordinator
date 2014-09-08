@@ -8,7 +8,7 @@ import (
   "fmt"
 )
 
-func handleClientsConnections(cch ClientChannels, client_quit chan bool) {
+func handleClientsConnections(cch ClientChannels) {
   listener, err := net.Listen("tcp", *lwaddr)
   
   if err != nil {
@@ -27,8 +27,6 @@ func handleClientsConnections(cch ClientChannels, client_quit chan bool) {
     // TODO: implement break
     go handleClient(sock, cch)
   }
-
-  client_quit <- true
 }
 
 func handleClient(sock common.Socket, cch ClientChannels) error {

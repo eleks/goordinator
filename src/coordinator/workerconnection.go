@@ -8,7 +8,7 @@ import (
   "io"
 )
 
-func handleWorkersConnections(wch WorkerChannels, worker_quit chan bool) {
+func handleWorkersConnections(wch WorkerChannels) {
   listener, err := net.Listen("tcp", *lwaddr)
 
   if err != nil {
@@ -27,29 +27,27 @@ func handleWorkersConnections(wch WorkerChannels, worker_quit chan bool) {
     
     go handleWorker(sock, wch)
   }
-
-  worker_quit <- true
 }
 
 func handleWorker(sock common.Socket, wch WorkerChannels) error {
   log.Printf("Worker connected from %v\n", sock.RemoteAddr())
   
-  op_type := make([]byte, 1)
+  opType := make([]byte, 1)
 
-  _, err := io.ReadFull(sock, op_type)
+  _, err := io.ReadFull(sock, opType)
   if err != nil {
     return err
   }
 
-  optype := common.WorkerOperation(op_type[0])
+  optype := common.WorkerOperation(opType[0])
   switch optype {
   case common.WInit:
     wch.addworker <- &Worker{sock: sock, tasks: make(chan common.Task)}
     // TODO: send response
   case common.WHealthCheck:
-    wch.healthcheck_request <- sock
+    wch.healthcheckRequest <- sock
   case common.WGetTask:
-    wch.gettask_request <- sock
+    wch.gettaskRequest <- sock
   case common.WTaskCompeted:
   case common.WSendResult:
   }

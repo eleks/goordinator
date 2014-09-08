@@ -34,21 +34,21 @@ func initWorker(cm ComputationManager) (err error) {
 func startHealthcheck(cm ComputationManager) {
   ticker := time.NewTicker(1 * time.Second)
 
-  info_channel := make(chan common.WorkerStatus)
+  infoChannel := make(chan common.WorkerStatus)
 
   for {
     select {
-    case <- ticker.C: go sendHealthCheck(cm, info_channel)
+    case <- ticker.C: go sendHealthCheck(cm, infoChannel)
     }
   }
 }
 
-func sendHealthCheck(cm ComputationManager, info_channel chan common.WorkerStatus) {
+func sendHealthCheck(cm ComputationManager, infoChannel chan common.WorkerStatus) {
   // TODO: handle error
   conn, _ := net.Dial("tcp", *caddr)
 
-  cm.status_info <- info_channel
-  health := <- info_channel
+  cm.statusInfo <- infoChannel
+  health := <- infoChannel
   binary.Write(conn, binary.BigEndian, health)
 
   var pending int
@@ -56,6 +56,6 @@ func sendHealthCheck(cm ComputationManager, info_channel chan common.WorkerStatu
   err := binary.Read(conn, binary.BigEndian, pending)
 
   if err == nil {
-    cm.healthcheck_response <- pending
+    cm.healthcheckResponse <- pending
   }
 }

@@ -15,6 +15,7 @@ var (
 
 const (
   maxReconnectTries = 100
+  defaultBufferLength = 10
 )
 
 func main() {
@@ -25,15 +26,26 @@ func main() {
     defer f.Close()
   }
 
-  cm := ComputationManager{}
-  
-  go cm.handleCommands()
-  go cm.computeTasks()
+  cm := ComputationManager{
+    healthcheckResponse: make(chan int),
+    statusInfo: make(chan chan common.WorkerStatus),
+    pendingTasksCount: 0,
+    tasks: make(chan common.Task),
+    results: make(map[int]common.ComputationResult)
+    chResults: make(chan common.ComputationResult)
+    status: common.WReady
+    stopMessages: make(chan chan error)
+    sendingMode: false
+    // buffered
+    stopComputations: make(chan bool, defaultBufferLength)
+  }
+
+  go cm.processTasks()
 
   err = initWorker(cm)
+  go startHealthcheck(cm)
 
-  cm.stop()
-  
+  cm.handleCommands()
 }
 
 func parseFlags() {

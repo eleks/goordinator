@@ -12,10 +12,11 @@ type ComputationManager struct {
   status_info chan chan common.WorkerStatus
   pending_tasks_count int
   tasks chan common.Task
-  tasks_results map[int]common.ComputationResult
-  results chan common.ComputationResult
+  results map[int]common.ComputationResult
+  ch_results chan common.ComputationResult
   status common.WorkerStatus
   stop_messages chan chan error
+  sending_mode bool
   // buffered
   stop_computations chan bool
 }
@@ -30,13 +31,17 @@ Loop:
       if pending > cm.pending_tasks_count {
         go cm.downloadNewTask()
         cm.pending_tasks_count++
-      } else if pending < 0 {
-        // TODO: rewrite task_results to list
-        go cm.sendTaskResult()
+      } else if pending < 0 && !cm.sending_mode {
+        cm.sending_mode = true
+        cm.sendTaskResults()        
       }
     }
-    case result := <- cm.results: {
-      cm.tasks_results[result.ID] = result
+    case result := <- cm.ch_results: {
+      if !cm.sending_mode {
+        cm.results[result.ID] = result
+      } else {
+        log.Fatal("Attempt to save result while sending results")
+      }      
     }
     case error_channel := <- cm.stop_messages: {
       error_channel <- err
@@ -73,8 +78,8 @@ Loop:
       // TODO: add computation itself
       
       log.Printf("Task #%v computation finished", task.ID)
-      var results common.ComputationResult
-      cm.results <- results
+      var cr common.ComputationResult
+      cm.ch_results <- cr
     }
     case <- cm.stop_computations:
       break Loop
@@ -82,14 +87,20 @@ Loop:
   }
 }
 
-func (cm *ComputationManager) sendTaskResult(res common.ComputationResult) {
+func (cm *ComputationManager) sendTaskResults() {
+  for _, cr := range cm.results {
+    go sendTaskResult(cr)
+  }
+}
+
+func sendTaskResult(cr common.ComputationResult) {
   conn, _ := net.Dial("tcp", *caddr)
 
   binary.Write(conn, binary.BigEndian, common.WSendResult)
 
-  binary.Write(conn, binary.BigEndian, res.ID)
-  
-  common.WriteDataArray(conn, res)
+  binary.Write(conn, binary.BigEndian, cr.ID)
+
+  common.WriteGenericData(conn, cr)
 }
 
 func (cm *ComputationManager) stop() error {

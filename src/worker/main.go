@@ -42,7 +42,7 @@ func main() {
 
   go cm.processTasks()
 
-  err = initWorker(cm)
+  err = initConnection(cm)
   go startHealthcheck(cm)
 
   cm.handleCommands()

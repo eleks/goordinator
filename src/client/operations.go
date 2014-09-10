@@ -8,30 +8,31 @@ import (
   "time"
 )
 
-func initConnection(cm ComputationManager) (err error) {
-  var conn net.Conn
-  reconnectTries := maxReconnectTries
+func initConnection() {
+  var connected bool
+
+  log.Println("Waiting for a coordinator connection...")
   
-  for ; reconnectTries > 0; reconnectTries-- {
-    log.Printf("Connecting to coordinator %v...\n", *caddr)
-    
-    conn, err = net.Dial("tcp", *caddr)
+Loop:
+  for {
+    conn, err := net.Dial("tcp", *caddr)
 
     if err == nil {
       log.Println("Connected successfully to coordinator")
-      binary.Write(conn, binary.BigEndian, common.WInit)
-    } else {
-      log.Println(err)
+      binary.Write(conn, binary.BigEndian, common.CInitSession)
+
+      var success byte
+      err = binary.Read(conn, binary.BigEndian, &success)
+
+      connected = err == nil && success == 1
+      break Loop
     }
 
-    log.Printf("%v more tries left...\n", reconnectTries)
-    time.Sleep(1 * time.Second)
+    time.Sleep(2 * time.Second)
   }
-
-  return err
 }
 
-func startHealthcheck(cm *ComputationManager) {
+func startHealthcheck() {
   conn, err := net.Dial("tcp", *caddr)
 
   if err != nil {
@@ -41,13 +42,13 @@ func startHealthcheck(cm *ComputationManager) {
     log.Printf("Connected to coordinator. Sending healthcheck session request")
   }
 
-  err = binary.Write(conn, binary.BigEndian, common.WHealthCheck)
+  err = binary.Write(conn, binary.BigEndian, common.CHealthCheck)
   if err != nil {
     log.Printf("Unable to init healthcheck session")
     return
   }
 
-  infoChannel := make(chan common.WorkerStatus)
+  infoChannel := make(chan common.ClientStatus)
 
 healthCheck:
   for {
@@ -57,12 +58,12 @@ healthCheck:
     health := <- infoChannel
     binary.Write(conn, binary.BigEndian, health)
 
-    var pending int
+    var percentage uint32
     // TODO: handle error
-    err = binary.Read(conn, binary.BigEndian, &pending)
+    err = binary.Read(conn, binary.BigEndian, &percentage)
 
     if err == nil {
-      go func(c ComputationManager, p int) {c.healthcheckResponse <- p}(cm, pending)
+      // TODO: do smth with health reply
     } else {
       break healthCheck
     }

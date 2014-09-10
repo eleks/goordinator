@@ -3,6 +3,7 @@ package common
 import (
   "net"
   "io"
+  "time"
   "encoding/binary"  
 )
 
@@ -133,4 +134,12 @@ Loop:
   }
 
   return err
+}
+
+func SleepDifference(elapsed time.Duration, seconds float64) {
+  diff := seconds - elapsed.Seconds()
+  if diff > 0 {
+    ms := int(diff * 1000)
+    time.Sleep(time.Duration(ms) * time.Millisecond)
+  }
 }

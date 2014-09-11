@@ -47,6 +47,10 @@ func startHealthcheck(cm *ComputationManager) {
     return
   }
 
+  go healthcheckMainLoop(cm, conn)
+}
+
+func healthcheckMainLoop(cm *ComputationManager, conn net.Conn) {
   infoChannel := make(chan common.WorkerStatus)
 
 healthCheck:
@@ -59,10 +63,10 @@ healthCheck:
 
     var pending int
     // TODO: handle error
-    err = binary.Read(conn, binary.BigEndian, &pending)
+    err := binary.Read(conn, binary.BigEndian, &pending)
 
     if err == nil {
-      go func(c ComputationManager, p int) {c.healthcheckResponse <- p}(cm, pending)
+      go func(c *ComputationManager, p int) {c.healthcheckResponse <- p}(cm, pending)
     } else {
       break healthCheck
     }
@@ -70,4 +74,3 @@ healthCheck:
     common.SleepDifference(time.Since(start), 1.0)
   }
 }
-

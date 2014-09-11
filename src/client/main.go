@@ -25,7 +25,15 @@ func main() {
 
   initConnection()
 
-  go startHealthcheck()
+  startHealthcheck()
+
+  sendCommonParameters()
+
+  computeTasks()
+
+  getResults()
+
+  saveResults()
 }
 
 func parseFlags() {

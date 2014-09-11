@@ -48,8 +48,12 @@ func startHealthcheck() {
     return
   }
 
-  infoChannel := make(chan common.ClientStatus)
+  go healthcheckMainLoop(cm, conn)
+}
 
+func healthcheckMainLoop(cm ComputationManager, conn net.Conn) {
+    infoChannel := make(chan common.ClientStatus)
+  
 healthCheck:
   for {
     start := time.Now()
@@ -60,7 +64,7 @@ healthCheck:
 
     var percentage uint32
     // TODO: handle error
-    err = binary.Read(conn, binary.BigEndian, &percentage)
+    err := binary.Read(conn, binary.BigEndian, &percentage)
 
     if err == nil {
       // TODO: do smth with health reply

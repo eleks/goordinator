@@ -68,6 +68,8 @@ type GenericData struct {
 type DataArray []*GenericData
 
 type ComputationResult struct {
+  // if Data is empty, then computation
+  // result is considered as Failed
   GenericData
   ID int
 }

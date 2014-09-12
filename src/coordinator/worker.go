@@ -27,7 +27,7 @@ type Worker struct {
   // else means number of task to retrieve from worker
   pending int
   capacity int
-  status common.WorkerStatus
+  tasksDone uint32
 }
 
 func (w *Worker) CloseSock() { w.sock.Close() }
@@ -36,7 +36,7 @@ func (w *Worker) GetSock() common.Socket { return w.sock }
 func (w *Worker) GetStatus() interface{} { return w.status }
 func (w *Worker) GetStatusChannel() chan chan interface{} { return w.ccinfo }
 
-func (w *Worker) SetHealthStatus(status byte) { w.status = common.WorkerStatus(status) }
+func (w *Worker) SetHealthStatus(tasksDone uint32) { w.tasksDone = tasksDone }
 func (w *Worker) GetHealthReply() interface{} { return w.pending }
 
 

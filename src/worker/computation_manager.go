@@ -9,13 +9,13 @@ import (
 
 type ComputationManager struct {
   healthcheckResponse chan int
-  statusInfo chan chan common.WorkerStatus
+  statusInfo chan chan uint32
   pendingTasksCount int
   tasks chan common.Task
   results map[int]common.ComputationResult
   chResults chan common.ComputationResult
-  status common.WorkerStatus
   stopMessages chan chan error
+  tasksDone int
   sendingMode bool
   // buffered
   stopComputations chan bool
@@ -26,7 +26,7 @@ func (cm *ComputationManager) handleCommands() {
 LoopCommands:
   for {
     select {
-    case infoChannel := <- cm.statusInfo: infoChannel <- cm.status
+    case infoChannel := <- cm.statusInfo: infoChannel <- uint32(cm.tasksDone)
     case pending := <- cm.healthcheckResponse: {
       if pending > cm.pendingTasksCount {
         go cm.downloadNewTask()
@@ -39,6 +39,7 @@ LoopCommands:
     case result := <- cm.chResults: {
       if !cm.sendingMode {
         cm.results[result.ID] = result
+        cm.tasksDone = len(cm.results)
       } else {
         log.Fatal("Attempt to save result while sending results")
       }
@@ -56,7 +57,7 @@ func (cm *ComputationManager) downloadNewTask() {
 
   binary.Write(conn, binary.BigEndian, common.WGetTask)
 
-  var taskID int
+  var taskID int64
   binary.Read(conn, binary.BigEndian, &taskID)
 
   log.Printf("Downloading task #%v parameters", taskID)
@@ -81,6 +82,7 @@ Loop:
             log.Printf("Task #%v computation started", task.ID)
 
         // TODO: add computation itself
+        // TODO: add failed computations too for overall count
       
         log.Printf("Task #%v computation finished", task.ID)
         var cr common.ComputationResult

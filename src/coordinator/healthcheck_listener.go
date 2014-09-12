@@ -22,25 +22,22 @@ type HealthReporter interface {
 func checkHealth(hr HealthReporter, timeout chan HealthReporter) {
   defer hr.CloseSock()
 
-  healthcheck := make(chan byte, 1)
+  healthcheck := make(chan uint32, 1)
   reply := make(chan interface{})
   done := make(chan bool, 1)
 
   go func() {
-    inputBuf := make([]byte, 1)
+    var tasksDone uint32
     sock := hr.GetSock()
 
   healthLoop:
     for {      
-      _, err := io.ReadFull(sock, inputBuf)
+      err := binary.Read(sock, binary.BigEndian, &tasksDone)
       if err != nil {
-        // TODO: send errors to channel
         log.Fatal(err)
-        break healthLoop
       }
 
-      healthStatus := inputBuf[0]
-      healthcheck <- healthStatus
+      healthcheck <- tasksDone
 
       select {
       case healthReply := <- reply: {

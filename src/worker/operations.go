@@ -58,8 +58,9 @@ healthCheck:
     start := time.Now()
     
     cm.statusInfo <- infoChannel
-    health := <- infoChannel
-    binary.Write(conn, binary.BigEndian, health)
+    // uint32
+    doneTasksCount := <- infoChannel
+    binary.Write(conn, binary.BigEndian, doneTasksCount)
 
     var pending int
     // TODO: handle error

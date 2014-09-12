@@ -10,6 +10,7 @@ type ClientChannels struct {
   healthcheckRequest chan common.Socket
   readcommondata chan common.Socket
   runcomputation chan common.Socket
+  getresults chan common.Socket
   rmclient chan *Client
 }
 
@@ -32,7 +33,7 @@ func (c *Client) GetStatus() interface{} { return c.status }
 func (c *Client) GetStatusChannel() chan chan interface{} { return c.info }
 
 func (c *Client) SetHealthStatus(status byte) { c.status = common.ClientStatus(status) }
-func (c *Client) GetHealthReply() interface{} { return uint32(c.done_tasks_count * 100 / c.tasks_count) }
+func (c *Client) GetHealthReply() interface{} { return uint32(c.doneTasksCount * 100 / c.tasksCount) }
 
 
 func (c *Client) replyInit(success bool) {
@@ -53,5 +54,4 @@ func (c *Client) RetrieveStatus() common.ClientStatus {
   c.info <- hchannel
   status := <- hchannel
   return status.(common.ClientStatus)
-
 }

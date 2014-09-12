@@ -50,6 +50,7 @@ func handleClient(sock common.Socket, cch ClientChannels) error {
   case common.CRunComputation:
     cch.runcomputation <- sock
   case common.CGetResult:
+    cch.getresults <- sock
   }
 
   log.Println("Waiting for client connection to finish")

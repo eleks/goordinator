@@ -190,7 +190,7 @@ func (c *Coordinator)dispatch(task common.Task) {
 
   // TODO: add assert pending >= 0
   
-  if w.pending < w.capacity {
+  if w.pending < w.capacity && w.pending >= 0 {
     w.tasks <- task
     w.pending++
   } else {

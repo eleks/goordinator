@@ -33,7 +33,7 @@ type Worker struct {
 func (w *Worker) CloseSock() { w.sock.Close() }
 func (w *Worker) GetSock() common.Socket { return w.sock }
 
-func (w *Worker) GetStatus() interface{} { return w.status }
+func (w *Worker) GetStatus() interface{} { return w.tasksDone }
 func (w *Worker) GetStatusChannel() chan chan interface{} { return w.ccinfo }
 
 func (w *Worker) SetHealthStatus(tasksDone uint32) { w.tasksDone = tasksDone }
@@ -73,10 +73,10 @@ func (p *Pool) Pop() interface{} {
   return w
 }
 
-func (w *Worker) RetrieveStatus() common.WorkerStatus {
+func (w *Worker) RetrieveStatus() uint32 {
   w.ccinfo <- w.cinfo
-  status := <- w.cinfo
-  return status.(common.WorkerStatus)
+  doneTasksCount := <- w.cinfo
+  return doneTasksCount.(uint32)
 }
 
 func (w *Worker) doWork() {

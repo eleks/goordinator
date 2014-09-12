@@ -191,11 +191,11 @@ func (c *Coordinator)dispatch(task common.Task) {
   // TODO: add assert pending >= 0
   
   if w.pending < w.capacity && w.pending >= 0 {
-    w.tasks <- task
+    go func(tasks chan common.Task, t) {tasks <- t} (w.tasks, task)
     w.pending++
   } else {
     // add same task again
-    go func() { c.tasks <- task }()
+    go func(tasks chan common.Task, t) {tasks <- t} (c.tasks, task)
   }
 
   heap.Push(&c.pool, w)

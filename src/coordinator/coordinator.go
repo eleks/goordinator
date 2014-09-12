@@ -141,7 +141,7 @@ func (c *Coordinator) runComputation(sock common.Socket) {
 
   log.Printf("Coordinator: going to receive %v tasks\n", tcount)
 
-  taskID := 0
+  var taskID int64
 
   for i = 0; i < tcount; i++ {
     parameters, n, err := common.ReadDataArray(sock)

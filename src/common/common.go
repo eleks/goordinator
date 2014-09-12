@@ -26,7 +26,7 @@ const (
 )
 
 type Task struct {
-  ID int
+  ID int64
   Parameters DataArray
 }
 

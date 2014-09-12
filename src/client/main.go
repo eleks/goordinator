@@ -11,6 +11,9 @@ import (
 // Flags
 var (
   caddr = flag.String("c", "0.0.0.0:4321", "the address of coordinator")
+  input = flag.String("i", "input", "file with input parameters for computations")
+  // 4 - fairly chosen by dice roll
+  grind = flag.Int("n", 4, "grind number")
   logfile = flag.String("l", "worker.log", "absolute path to log file")
 )
 
@@ -27,13 +30,24 @@ func main() {
 
   startHealthcheck()
 
-  sendCommonParameters()
-
-  computeTasks()
+  commonParams, err := readCommonParameters("anyfile")
+  checkFail(err)
+  
+  err = sendCommonParameters(commonParams)
+  checkFail(err)
+ 
+  err = computeTasks()
+  checkFail(err)
 
   getResults()
 
   saveResults()
+}
+
+func checkFail(err error) {
+  if err != nil {
+    log.Fatal(err)
+  }  
 }
 
 func parseFlags() {

@@ -42,7 +42,10 @@ func handleClient(sock common.Socket, cch ClientChannels) error {
   optype := common.ClientOperation(op_type[0])
   switch optype {
   case common.CInitSession:
-    cch.addclient <- &Client{sock: sock, status: common.CIdle}
+    cch.addclient <- &Client{
+      status: common.CIdle,
+      info: make(chan chan interface{})
+      ID: 0}
   case common.CHealthCheck:
     cch.healthcheck_request <- sock
   case common.CInputParameters:
@@ -50,7 +53,7 @@ func handleClient(sock common.Socket, cch ClientChannels) error {
   case common.CRunComputation:
     cch.runcomputation <- sock
   case common.CGetResult:
-    cch.getresults <- sock
+    cch.getresults <- true
   }
 
   log.Println("Waiting for client connection to finish")

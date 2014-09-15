@@ -12,7 +12,6 @@ type Coordinator struct {
   pool Pool
   client *Client
   hash map[uint32]*Worker
-  usedworkerIDs chan uint32
   lastWorkerID uint32
   // buffered
   tasks chan common.Task
@@ -52,6 +51,7 @@ ClientLoop:
     case sock := <- cch.healthcheckRequest: c.checkHealthClient(sock)
     case sock := <- cch.readcommondata: c.readCommonData(sock)
     case sock := <- cch.runcomputation: c.runComputation(sock)
+    case <- cch.getresults: c.setGetResultsFlag()
     case <- c.clientTimeout: {
       // TODO: cleanup
     }
@@ -222,6 +222,9 @@ func (c *Coordinator)broadcast(task common.Task) {
   }
 }
 
-func (c *Coordinator)completed(w *Worker) {
-  
+func (c *Coordinator) setGetResultsFlag() {
+  for _, w := range c.pool {
+    getresults := w.GetResultsFlagChannel()
+    go func(ch chan bool) {ch <- true}(getresults)
+  }
 }

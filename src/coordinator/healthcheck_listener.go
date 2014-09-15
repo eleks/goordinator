@@ -16,6 +16,9 @@ type HealthReporter interface {
   GetHealthReply() interface{}
 
   GetID() uint32
+
+  GetResultsFlagChannel() chan bool
+  SetGetResultsFlag()
 }
 
 func checkHealth(hr HealthReporter, sock common.Socket, timeout chan HealthReporter) {
@@ -52,6 +55,7 @@ func checkHealth(hr HealthReporter, sock common.Socket, timeout chan HealthRepor
   }()
 
   statusChannel := hr.GetStatusChannel()
+  resultsFlagChannel := hr.GetResultsFlagChannel()
 
   Loop:
   for {
@@ -61,6 +65,7 @@ func checkHealth(hr HealthReporter, sock common.Socket, timeout chan HealthRepor
       reply <- hr.GetHealthReply()
     }
     case hchannel := <- statusChannel: hchannel <- hr.GetStatus()
+    case <- resultsFlagChannel: hr.SetGetResultsFlag()
     case <- time.After(1 * time.Second): {
       // TODO: change timeout
       done <- true

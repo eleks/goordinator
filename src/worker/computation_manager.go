@@ -35,7 +35,7 @@ LoopCommands:
         cm.pendingTasksCount++
       } else if pending < 0 && !cm.sendingMode {
         cm.sendingMode = true
-        cm.sendTaskResults()        
+        cm.sendTaskResults()
       }
     }
     case result := <- cm.chResults: {
@@ -100,6 +100,7 @@ Loop:
 }
 
 func (cm *ComputationManager) sendTaskResults() {
+  log.Printf("Sending task results to coordinator.. Launching goroutines")
   rcount := len(cm.results)
   waitAll := make([]chan bool, rcount)
   for i := range waitAll { waitAll[i] := make(chan bool) }
@@ -109,14 +110,16 @@ func (cm *ComputationManager) sendTaskResults() {
     delete(cm.results, key)    
   }
 
+  log.Printf("Waiting for all send task completed")
+
   // wait all and stop coordinator
-  go func(waitArr[] chan bool, cm *ComputationManager) {
+  go func(waitArr[] chan bool, c *ComputationManager) {
     for i := range waitArr { <- waitArr[i] }
-    cm.stop()
+    c.stop()
   }(waitAll)
 }
 
-func sendTaskResult(cr common.ComputationResult, wait chan bool) {
+func sendTaskResult(cr common.ComputationResult, finished chan bool) {
   conn, _ := net.Dial("tcp", *caddr)
 
   binary.Write(conn, binary.BigEndian, common.WSendResult)
@@ -125,7 +128,7 @@ func sendTaskResult(cr common.ComputationResult, wait chan bool) {
 
   common.WriteGenericData(conn, cr)
 
-  wait <- true
+  finished <- true
 }
 
 func (cm *ComputationManager) stop() error {

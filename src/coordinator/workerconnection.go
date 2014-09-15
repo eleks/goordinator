@@ -62,7 +62,7 @@ func handleWorker(sock common.Socket, wch WorkerChannels) error {
     if err == nil {
       wch.gettaskRequest <- WCInfo{workerID, sock}
     }
-  case common.WTaskCompeted:
+  case common.WTaskCompeted: // can be implemented on demand
   case common.WSendResult:
   }
 

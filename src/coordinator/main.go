@@ -29,10 +29,29 @@ func main() {
     defer f.Close()
   }
 
-  worker_channels := WorkerChannels{make(chan *Worker), make(chan common.Socket), make(chan common.Socket), make(chan *Worker)}
-  client_channels := ClientChannels{make(chan *Client), make(chan common.Socket), make(chan common.Socket), make(chan common.Socket), make(chan *Client)}
+  worker_channels := WorkerChannels{
+    addworker: make(chan *Worker),
+    healthcheckRequest: make(chan WCInfo),
+    nextID: make(chan uint32),
+    gettaskRequest: make(chan WCInfo),
+    rmworker: make(chan *Worker)}
   
-  coordinator := &Coordinator{pool: make(Pool, 0, initialWorkerCount)}
+  client_channels := ClientChannels{
+    addclient: make(chan *Client),
+    healcheckRequest: make(chan common.Socket),
+    readcommondata: make(chan common.Socket),
+    runcomputation: make(chan common.Socket),
+    getresults: make(chan bool),
+    rmclient: make(chan *Client)}
+  
+  coordinator := &Coordinator{
+    pool: make(Pool, 0, initialWorkerCount),
+    hash: make(map[uint32]*Worker),
+    tasks: make(chan common.Task),
+    workerTimeout: make(chan HealthReporter),
+    clientTimeout: make(chan HealthReporter),
+    workerQuit: make(chan bool),
+    clientQuit: make(chan bool)}
 
   go coordinator.handleWorkerChannels(worker_channels)
   go coordinator.handleClientChannels(client_channels)

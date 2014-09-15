@@ -25,6 +25,7 @@ type Worker struct {
   // buffered channel (buffer size is capacity)
   tasks chan common.Task
   stop chan bool
+  getResults chan bool
   // buffered channel operates with common.WorkerInfo
   cinfo chan interface{}
   ccinfo chan chan interface{}
@@ -35,16 +36,28 @@ type Worker struct {
   capacity int
   tasksDone uint32
   ID uint32
+  getresultsFlag bool
 }
 
 func (w *Worker) GetStatus() interface{} { return w.tasksDone }
 func (w *Worker) GetStatusChannel() chan chan interface{} { return w.ccinfo }
 
 func (w *Worker) SetHealthStatus(tasksDone uint32) { w.tasksDone = tasksDone }
-func (w *Worker) GetHealthReply() interface{} { return w.pending }
+func (w *Worker) GetHealthReply() interface{} {
+  var result int
+  if !w.getresultsFlag {
+    result = w.pending
+  } else {
+    result = -1
+  }
+  
+  return result
+}
 
 func (w *Worker) GetID() uint32 { return w.ID }
 
+func (w *Worker) GetResultsFlagChannel() chan bool { return w.getResults }
+func (w *Worker) SetGetResultsFlag() { w.getresultsFlag = true }
 
 type Pool []*Worker
 

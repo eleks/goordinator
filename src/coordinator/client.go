@@ -24,10 +24,9 @@ type Client struct {
   doneTasksCount uint32
 
   status common.ClientStatus
-}
 
-func (c *Client) CloseSock() { c.sock.Close() }
-func (c *Client) GetSock() common.Socket { return c.sock }
+  ID uint32
+}
 
 func (c *Client) GetStatus() interface{} { return c.status }
 func (c *Client) GetStatusChannel() chan chan interface{} { return c.info }

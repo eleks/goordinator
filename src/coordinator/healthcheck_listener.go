@@ -15,12 +15,11 @@ type HealthReporter interface {
   SetHealthStatus(status byte)
   GetHealthReply() interface{}
 
-  CloseSock()
-  GetSock() common.Socket
+  GetID() uint32
 }
 
-func checkHealth(hr HealthReporter, timeout chan HealthReporter) {
-  defer hr.CloseSock()
+func checkHealth(hr HealthReporter, sock common.Socket, timeout chan HealthReporter) {
+  defer sock.CloseSock()
 
   healthcheck := make(chan uint32, 1)
   reply := make(chan interface{})
@@ -28,7 +27,6 @@ func checkHealth(hr HealthReporter, timeout chan HealthReporter) {
 
   go func() {
     var tasksDone uint32
-    sock := hr.GetSock()
 
   healthLoop:
     for {      

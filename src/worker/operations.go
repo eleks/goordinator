@@ -11,17 +11,12 @@ import (
 func initConnection(cm ComputationManager) (err error) {
   var conn net.Conn
   reconnectTries := maxReconnectTries
-  
-  for ; reconnectTries > 0; reconnectTries-- {
-    log.Printf("Connecting to coordinator %v...\n", *caddr)
-    
-    conn, err = net.Dial("tcp", *caddr)
 
+reconnect:
+  for ; reconnectTries > 0; reconnectTries-- {
+    err = connectToCoordinator(cm)
     if err == nil {
-      log.Println("Connected successfully to coordinator")
-      binary.Write(conn, binary.BigEndian, common.WInit)
-    } else {
-      log.Println(err)
+      break reconnect
     }
 
     log.Printf("%v more tries left...\n", reconnectTries)
@@ -29,6 +24,25 @@ func initConnection(cm ComputationManager) (err error) {
   }
 
   return err
+}
+
+func connectToCoordinator(cm ComputationManager) (err error) {
+  var conn net.Conn
+  log.Printf("Connecting to coordinator %v...\n", *caddr)
+    
+  conn, err = net.Dial("tcp", *caddr)
+
+  if err == nil {
+    log.Println("Connected successfully to coordinator")
+    binary.Write(conn, binary.BigEndian, common.WInit)
+    var id uint32
+    err = binary.Read(conn, binary.BigEndian, &id)
+    if err == nil {
+      cm.ID = id
+    }
+  } else {
+    log.Println(err)
+  }  
 }
 
 func startHealthcheck(cm *ComputationManager) {
@@ -44,6 +58,12 @@ func startHealthcheck(cm *ComputationManager) {
   err = binary.Write(conn, binary.BigEndian, common.WHealthCheck)
   if err != nil {
     log.Printf("Unable to init healthcheck session")
+    return
+  }
+
+  err = binary.Write(conn, binary.BigEndian, cm.ID)
+  if err != nil {
+    log.Printf("Unable to send worker ID")
     return
   }
 

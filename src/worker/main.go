@@ -27,6 +27,7 @@ func main() {
   }
 
   cm := ComputationManager{
+    ID: 0,
     healthcheckResponse: make(chan int),
     statusInfo: make(chan chan common.WorkerStatus),
     pendingTasksCount: 0,

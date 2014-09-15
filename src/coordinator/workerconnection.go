@@ -5,7 +5,7 @@ import (
   "fmt"
   "log"
   "net"
-  "io"
+  "encoding/binary"
 )
 
 func handleWorkersConnections(wch WorkerChannels) {
@@ -32,22 +32,36 @@ func handleWorkersConnections(wch WorkerChannels) {
 func handleWorker(sock common.Socket, wch WorkerChannels) error {
   log.Printf("Worker connected from %v\n", sock.RemoteAddr())
   
-  opType := make([]byte, 1)
+  var opType byte
+  var workerID uint32
 
-  _, err := io.ReadFull(sock, opType)
+  err := binary.Read(sock, binary.BigEndian, &opType)
   if err != nil {
     return err
   }
 
-  optype := common.WorkerOperation(opType[0])
+  optype := common.WorkerOperation(opType)
   switch optype {
   case common.WInit:
-    wch.addworker <- &Worker{sock: sock, tasks: make(chan common.Task)}
-    // TODO: send response
+    wch.addworker <- &Worker{
+      tasks: make(chan common.Task),
+      stop: make(chan bool),
+      cinfo: make(chan interface{}),
+      ccinfo: make(chan chan interface{}),
+      ID: 0}
+    nextID := <- wch.nextID
+    err = binary.Write(sock, binary.BigEndian, nextID)
+    go sock.Close()
   case common.WHealthCheck:
-    wch.healthcheckRequest <- sock
+    err = binary.Read(sock, binary.BigEndian, &workerID)
+    if err == nil {
+      wch.healthcheckRequest <- WCInfo{workerID, sock}
+    }
   case common.WGetTask:
-    wch.gettaskRequest <- sock
+    err = binary.Read(sock, binary.BigEndian, &workerID)
+    if err == nil {
+      wch.gettaskRequest <- WCInfo{workerID, sock}
+    }
   case common.WTaskCompeted:
   case common.WSendResult:
   }
@@ -58,4 +72,3 @@ func handleWorker(sock common.Socket, wch WorkerChannels) error {
   log.Printf("Worker disconnected from %v\n", sock.RemoteAddr())
   return nil
 }
-

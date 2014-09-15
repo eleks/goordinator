@@ -8,14 +8,20 @@ import (
 
 type WorkerChannels struct {
   addworker chan *Worker
-  healthcheckRequest chan common.Socket
-  gettaskRequest chan common.Socket
+  healthcheckRequest chan WCInfo
+  nextID chan uint32
+  gettaskRequest chan WCInfo
   rmworker chan *Worker
+}
+
+// worker connection info
+type WCInfo struct {
+  ID uint32
+  sock common.Socket
 }
 
 type Worker struct {
   index int
-  sock common.Socket
   // buffered channel (buffer size is capacity)
   tasks chan common.Task
   stop chan bool
@@ -28,16 +34,16 @@ type Worker struct {
   pending int
   capacity int
   tasksDone uint32
+  ID uint32
 }
-
-func (w *Worker) CloseSock() { w.sock.Close() }
-func (w *Worker) GetSock() common.Socket { return w.sock }
 
 func (w *Worker) GetStatus() interface{} { return w.tasksDone }
 func (w *Worker) GetStatusChannel() chan chan interface{} { return w.ccinfo }
 
 func (w *Worker) SetHealthStatus(tasksDone uint32) { w.tasksDone = tasksDone }
 func (w *Worker) GetHealthReply() interface{} { return w.pending }
+
+func (w *Worker) GetID() uint32 { return w.ID }
 
 
 type Pool []*Worker

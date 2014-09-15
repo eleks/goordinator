@@ -8,6 +8,8 @@ import (
 )
 
 type ComputationManager struct {
+  // always greater than zero (0 == unassigned)
+  ID uint32
   healthcheckResponse chan int
   statusInfo chan chan uint32
   pendingTasksCount int
@@ -15,7 +17,7 @@ type ComputationManager struct {
   results map[int]common.ComputationResult
   chResults chan common.ComputationResult
   stopMessages chan chan error
-  tasksDone int
+  tasksDone int  
   sendingMode bool
   // buffered
   stopComputations chan bool
@@ -56,6 +58,7 @@ func (cm *ComputationManager) downloadNewTask() {
   conn, _ := net.Dial("tcp", *caddr)
 
   binary.Write(conn, binary.BigEndian, common.WGetTask)
+  binary.Write(conn, binary.BigEndian, cm.ID)
 
   var taskID int64
   binary.Read(conn, binary.BigEndian, &taskID)

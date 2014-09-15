@@ -11,7 +11,9 @@ import (
 type Coordinator struct {
   pool Pool
   client *Client
-  hash map[net.Addr]*Worker
+  hash map[uint32]*Worker
+  usedworkerIDs chan uint32
+  lastWorkerID uint32
   // buffered
   tasks chan common.Task
   workerTimeout chan HealthReporter
@@ -27,10 +29,10 @@ func (c *Coordinator)handleWorkerChannels(wch WorkerChannels) {
 WorkerLoop:
   for {
     select {
-    case w := <- wch.addworker: c.addWorker(w)
-    case sock := <- wch.healthcheckRequest: c.checkHealthWorker(sock)
+    case w := <- wch.addworker: c.addWorker(w, wch.nextID)
+    case wci := <- wch.healthcheckRequest: c.checkHealthWorker(wci)
     case newTask := <- c.tasks: c.dispatch(newTask)
-    case sock := <- wch.gettaskRequest: c.sendNextTaskToWorker(sock)
+    case wci := <- wch.gettaskRequest: c.sendNextTaskToWorker(wci)
     case hr := <- c.workerTimeout: c.workerTimeoutOccured(hr)
     case <- c.workerQuit: {
       break WorkerLoop
@@ -66,13 +68,27 @@ func (c *Coordinator)quit() {
   c.clientQuit <- true
 }
 
-func (c *Coordinator) addWorker(w *Worker) {
+func (c *Coordinator) addWorker(w *Worker, nextIDChan chan <- uint32) {
   log.Printf("Coordinator: add worker with remote address %v \n", w.sock.RemoteAddr())
-  
-  heap.Push(&c.pool, *w)
-  c.hash[w.sock.RemoteAddr()] = w
 
-  go w.doWork()
+  nextID = c.getNextWorkerID()
+
+  if err == nil {
+    w.ID = nextID
+    heap.Push(&c.pool, *w)
+    c.hash[nextID] = w
+
+    log.Printf("Coordinator: added worker with ID #%v", nextID)
+
+    go w.doWork()
+
+    nextIDChan <- nextID
+  }
+}
+
+func (c *Coordinator) getNextWorkerID() (nextID uint32) {
+  nextID = c.lastWorkerID
+  c.lastWorkerID++
 }
 
 func (c *Coordinator) addClient(cl *Client) {
@@ -88,18 +104,18 @@ func (c *Coordinator) addClient(cl *Client) {
   cl.replyInit(canAddClient)
 }
 
-func (c *Coordinator) checkHealthWorker(sock common.Socket){
+func (c *Coordinator) checkHealthWorker(wci WorkerID) {
   // TODO: add assert value,present = hash[addr]
-  addr := sock.RemoteAddr()
+  addr := wci.sock.RemoteAddr()
 
-  log.Printf("Worker healthcheck request from address: %v\n", addr)
+  log.Printf("Worker #%v healthcheck request from address: %v\n", workerID, addr)
 
-  w, present := c.hash[addr]
+  w, present := c.hash[wci.ID]
   if !present {
     log.Fatalf("Healthcheck: worker with address %v is not registered", addr)
   }
   
-  go checkHealth(w, c.workerTimeout)
+  go checkHealth(w, wci.sock, c.workerTimeout)
 }
 
 func (c *Coordinator) checkHealthClient(sock common.Socket) {
@@ -112,7 +128,7 @@ func (c *Coordinator) checkHealthClient(sock common.Socket) {
     log.Fatalf("Healthcheck: client with address %v is not registered", addr)
   }
 
-  go checkHealth(cl, c.clientTimeout)
+  go checkHealth(cl, sock, c.clientTimeout)
 }
 
 func (c *Coordinator) readCommonData(sock common.Socket) {
@@ -157,22 +173,20 @@ func (c *Coordinator) runComputation(sock common.Socket) {
   c.client.tasksCount = tcount
 }
 
-func (c *Coordinator) sendNextTaskToWorker(sock common.Socket) {
-  addr := sock.RemoteAddr()
-
-  w, present := c.hash[addr]
+func (c *Coordinator) sendNextTaskToWorker(wci WCInfo) {
+  w, present := c.hash[wci.ID]
   if !present {
-    log.Fatalf("sendNextTask: worker %v is not registered", addr)
+    log.Fatalf("sendNextTask: worker with id %v is not registered", workerID)
   }
-  
-  go w.sendNextTask(sock)
+
+  go w.sendNextTask(wci.sock)
 }
 
 func (c *Coordinator) workerTimeoutOccured(hr HealthReporter) {
-  addr := hr.GetSock().RemoteAddr()
-  w, present := c.hash[addr]
+  id = hr.GetID()
+  w, present := c.hash[id]
   if !present {
-    log.Fatal("Worker is not present in coordinator pool")
+    log.Fatal("Worker timeout: entity with id #%v is not present in coordinator pool", id)
   }
 
   if w.pending > 0 {
@@ -182,7 +196,7 @@ func (c *Coordinator) workerTimeoutOccured(hr HealthReporter) {
     }
   }
 
-  delete(c.hash, addr)
+  delete(c.hash, id)
 }
 
 func (c *Coordinator)dispatch(task common.Task) {

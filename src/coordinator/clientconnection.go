@@ -3,7 +3,7 @@ package main
 import (
   "../common"
   "net"
-  "io"
+  "encoding/binary"
   "log"
   "fmt"
 )
@@ -32,14 +32,14 @@ func handleClientsConnections(cch ClientChannels) {
 func handleClient(sock common.Socket, cch ClientChannels) error {
   log.Printf("Client connected from %v\n", sock.RemoteAddr())
   
-  op_type := make([]byte, 1)
+  var opType byte
 
-  _, err := io.ReadFull(sock, op_type)
+  err := binary.Read(sock, binary.BigEndian, &opType)
   if err != nil {
     return err
   }
 
-  optype := common.ClientOperation(op_type[0])
+  optype := common.ClientOperation(opType)
   switch optype {
   case common.CInitSession:
     cch.addclient <- &Client{

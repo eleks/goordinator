@@ -73,17 +73,13 @@ func (c *Coordinator) addWorker(w *Worker, nextIDChan chan <- uint32) {
 
   nextID = c.getNextWorkerID()
 
-  if err == nil {
-    w.ID = nextID
-    heap.Push(&c.pool, *w)
-    c.hash[nextID] = w
+  w.ID = nextID
+  heap.Push(&c.pool, *w)
+  c.hash[nextID] = w
 
-    log.Printf("Coordinator: added worker with ID #%v", nextID)
+  log.Printf("Coordinator: added worker with ID #%v", nextID)
 
-    go w.doWork()
-
-    nextIDChan <- nextID
-  }
+  nextIDChan <- nextID
 }
 
 func (c *Coordinator) getNextWorkerID() (nextID uint32) {

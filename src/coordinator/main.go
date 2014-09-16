@@ -54,17 +54,15 @@ func main() {
     workerQuit: make(chan bool),
     clientQuit: make(chan bool)}
 
-  go coordinator.handleWorkerChannels(workerChannels)
-  go coordinator.handleClientChannels(clientChannels)
-
   go handleClientsConnections(clientChannels)
   go handleWorkersConnections(workerChannels)
 
   go handleWorkerGetResults(workerChannels.taskresult, clientChannels.computationResults)
   go handleClientGetResults(clientChannels.getresults, clientChannels.computationResults)
 
-  // TODO: wait for sending all tasks to client
-  
+  go coordinator.handleClientChannels(clientChannels)
+  coordinator.handleWorkerChannels(workerChannels)
+
   coordinator.quit()
 }
 

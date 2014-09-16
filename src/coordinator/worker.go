@@ -99,17 +99,6 @@ func (w *Worker) RetrieveStatus() uint32 {
   return doneTasksCount.(uint32)
 }
 
-func (w *Worker) doWork() {
-  log.Printf("Worker with index %v started working", w.index)
-Loop:
-  for {
-    select {
-    case <- w.stop:
-      break Loop
-    }
-  }
-}
-
 func (w *Worker) sendNextTask(sock common.Socket) error {
   task := <- w.tasks
 

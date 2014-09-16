@@ -43,6 +43,7 @@ func handleWorker(sock common.Socket, wch WorkerChannels) error {
   optype := common.WorkerOperation(opType)
   switch optype {
   case common.WInit:
+    log.Printf("Worker Init procedure started")
     wch.addworker <- &Worker{
       tasks: make(chan common.Task),
       stop: make(chan bool),
@@ -50,26 +51,29 @@ func handleWorker(sock common.Socket, wch WorkerChannels) error {
       ccinfo: make(chan chan interface{}),
       ID: 0}
     nextID := <- wch.nextID
-    err = binary.Write(sock, binary.BigEndian, nextID)
+    binary.Write(sock, binary.BigEndian, nextID)
     go sock.Close()
   case common.WHealthCheck:
     err = binary.Read(sock, binary.BigEndian, &workerID)
     if err == nil {
+      log.Printf("Worker healthcheck request received for id #%v", workerID)
       wch.healthcheckRequest <- WCInfo{workerID, sock}
     }
   case common.WGetTask:
     err = binary.Read(sock, binary.BigEndian, &workerID)
     if err == nil {
+      log.Printf("Worker GetTask request received for id #%v", workerID)
       wch.gettaskRequest <- WCInfo{workerID, sock}
     }
   case common.WTaskCompeted: // can be implemented on demand
   case common.WSendResult:
+    log.Printf("Worker sent task result")
     wch.taskresult <- sock
   }
 
-  // wait until socket is processed
-  
+  // wait until socket is processed  
   <-sock.Done
+  
   log.Printf("Worker disconnected from %v\n", sock.RemoteAddr())
   return nil
 }

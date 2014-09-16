@@ -10,7 +10,8 @@ type ClientChannels struct {
   healthcheckRequest chan common.Socket
   readcommondata chan common.Socket
   runcomputation chan common.Socket
-  getresults chan bool
+  getresults chan common.Socket
+  computationResults chan common.ComputationResult
   rmclient chan *Client
 }
 
@@ -38,14 +39,14 @@ func (w *Client) SetGetResultsFlag() { }
 func (c *Client) replyInit(success bool) {
   log.Printf("Replying to client. Connection was successful: %v\n", success)
   
-  statusBuf := make([]byte, 1)
+  var status byte
   if success {
-    statusBuf[0] = 1
+    status = 1
   } else {
-    statusBuf[0] = 0
+    status = 0
   }
 
-  c.sock.Write(statusBuf)
+  binary.Write(c.sock, binary.BigEndian, status)
 }
 
 func (c *Client) RetrieveStatus() common.ClientStatus {

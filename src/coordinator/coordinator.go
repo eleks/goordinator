@@ -228,3 +228,7 @@ func (c *Coordinator) setGetResultsFlag() {
     go func(ch chan bool) {ch <- true}(getresults)
   }
 }
+
+func (c *Coordinator) readTaskResult(sock common.Socket) {
+  
+}

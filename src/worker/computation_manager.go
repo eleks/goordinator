@@ -89,6 +89,7 @@ Loop:
       
         log.Printf("Task #%v computation finished", task.ID)
         var cr common.ComputationResult
+        cr.ID = task.ID
         cm.ch_results <- cr
       }
     }
@@ -100,35 +101,40 @@ Loop:
 }
 
 func (cm *ComputationManager) sendTaskResults() {
-  log.Printf("Sending task results to coordinator.. Launching goroutines")
+  log.Printf("Sending task results to coordinator..")
   rcount := len(cm.results)
-  waitAll := make([]chan bool, rcount)
-  for i := range waitAll { waitAll[i] := make(chan bool) }
-  
+
+  // sequential sending to reduce load on coordinator
+  finished := make(chan bool)
   for key, cr := range cm.results {
-    go sendTaskResult(cr, waitAll[i])
+    go sendTaskResult(cr, finished)
+    <- finished
     delete(cm.results, key)    
   }
-
-  log.Printf("Waiting for all send task completed")
-
-  // wait all and stop coordinator
-  go func(waitArr[] chan bool, c *ComputationManager) {
-    for i := range waitArr { <- waitArr[i] }
-    c.stop()
-  }(waitAll)
 }
 
 func sendTaskResult(cr common.ComputationResult, finished chan bool) {
-  conn, _ := net.Dial("tcp", *caddr)
+  defer func(f chan bool) {f <- true}(finished)
 
-  binary.Write(conn, binary.BigEndian, common.WSendResult)
+  conn, err := net.Dial("tcp", *caddr)
+  if err != nil {
+    return
+  }
 
-  binary.Write(conn, binary.BigEndian, cr.ID)
+  err = binary.Write(conn, binary.BigEndian, common.WSendResult)
+  if err != nil {
+    return
+  }
 
-  common.WriteGenericData(conn, cr)
+  err = binary.Write(conn, binary.BigEndian, cr.ID)
+  if err != nil {
+    return
+  }
 
-  finished <- true
+  err = common.WriteGenericData(conn, cr)
+  if err != nil {
+    return
+  }
 }
 
 func (cm *ComputationManager) stop() error {

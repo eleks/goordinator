@@ -29,14 +29,15 @@ func main() {
     defer f.Close()
   }
 
-  worker_channels := WorkerChannels{
+  workerChannels := WorkerChannels{
     addworker: make(chan *Worker),
     healthcheckRequest: make(chan WCInfo),
     nextID: make(chan uint32),
     gettaskRequest: make(chan WCInfo),
+    taskresult: make(chan common.Socket),
     rmworker: make(chan *Worker)}
   
-  client_channels := ClientChannels{
+  clientChannels := ClientChannels{
     addclient: make(chan *Client),
     healcheckRequest: make(chan common.Socket),
     readcommondata: make(chan common.Socket),
@@ -53,11 +54,14 @@ func main() {
     workerQuit: make(chan bool),
     clientQuit: make(chan bool)}
 
-  go coordinator.handleWorkerChannels(worker_channels)
-  go coordinator.handleClientChannels(client_channels)
+  go coordinator.handleWorkerChannels(workerChannels)
+  go coordinator.handleClientChannels(clientChannels)
 
-  go handleClientsConnections(client_channels)
-  go handleWorkersConnections(worker_channels)
+  go handleClientsConnections(clientChannels)
+  go handleWorkersConnections(workerChannels)
+
+  go handleWorkerGetResults(workerChannels.taskresult, clientChannels.computationResults)
+  go handleClientGetResults(clientChannels.getresults, clientChannels.computationResults)
 
   // TODO: wait for sending all tasks to client
   

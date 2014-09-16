@@ -64,6 +64,7 @@ func handleWorker(sock common.Socket, wch WorkerChannels) error {
     }
   case common.WTaskCompeted: // can be implemented on demand
   case common.WSendResult:
+    wch.taskresult <- sock
   }
 
   // wait until socket is processed

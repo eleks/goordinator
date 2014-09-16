@@ -71,7 +71,7 @@ type ComputationResult struct {
   // if Data is empty, then computation
   // result is considered as Failed
   GenericData
-  ID int
+  ID int64
 }
 
 func ReadGenericData(r io.Reader) (gd GenericData, err error) {

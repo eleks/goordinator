@@ -11,6 +11,7 @@ type WorkerChannels struct {
   healthcheckRequest chan WCInfo
   nextID chan uint32
   gettaskRequest chan WCInfo
+  taskresult chan common.Socket
   rmworker chan *Worker
 }
 

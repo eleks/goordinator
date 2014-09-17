@@ -42,7 +42,8 @@ func main() {
     healcheckRequest: make(chan common.Socket),
     readcommondata: make(chan common.Socket),
     runcomputation: make(chan common.Socket),
-    getresults: make(chan bool),
+    collectResults: make(chan bool)
+    getresult: make(chan common.Socket),
     rmclient: make(chan *Client)}
   
   coordinator := &Coordinator{

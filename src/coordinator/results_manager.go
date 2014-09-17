@@ -24,9 +24,9 @@ func handleWorkerGetResults(tasksresults <-chan common.Socket, computationResult
   }
 }
 
-func handleClientGetResults(getresults <-chan common.Socket, computationResults <-chan common.ComputationResult) {
+func handleClientGetResults(getResult <-chan common.Socket, computationResults <-chan common.ComputationResult) {
   var err error
-  for sock := range getresults {
+  for sock := range getResult {
     cr := <- computationResults
 
     err = binary.Write(sock, binary.BigEndian, cr.ID)

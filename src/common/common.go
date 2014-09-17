@@ -57,6 +57,7 @@ const (
   CHealthCheck
   CInputParameters
   CRunComputation
+  CCollectResults
   CGetResult
 )
 

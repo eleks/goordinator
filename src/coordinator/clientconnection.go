@@ -52,8 +52,11 @@ func handleClient(sock common.Socket, cch ClientChannels) error {
     cch.readcommondata <- sock
   case common.CRunComputation:
     cch.runcomputation <- sock
+  case common.CCollectResults:
+    cch.collectResults <- true
+    go sock.Close()
   case common.CGetResult:
-    cch.getresults <- sock
+    cch.getresult <- sock
   }
 
   log.Println("Waiting for client connection to finish")

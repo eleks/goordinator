@@ -51,7 +51,8 @@ ClientLoop:
     case sock := <- cch.healthcheckRequest: c.checkHealthClient(sock)
     case sock := <- cch.readcommondata: c.readCommonData(sock)
     case sock := <- cch.runcomputation: c.runComputation(sock)
-    case <- cch.getresults: c.setGetResultsFlag()
+    case <- cch.collectResults: c.setGetResultsFlag()
+    case <- cch.getresult: 
     case <- c.clientTimeout: {
       // TODO: cleanup
     }
@@ -223,8 +224,4 @@ func (c *Coordinator) setGetResultsFlag() {
     getresults := w.GetResultsFlagChannel()
     go func(ch chan bool) {ch <- true}(getresults)
   }
-}
-
-func (c *Coordinator) readTaskResult(sock common.Socket) {
-  
 }

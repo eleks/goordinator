@@ -28,7 +28,8 @@ func main() {
 
   initConnection()
 
-  startHealthcheck()
+  canGetResults := make(chan bool, 1)
+  startHealthcheck(canGetResults)
 
   commonParams, err := readCommonParameters("anyfile")
   checkFail(err)
@@ -39,8 +40,19 @@ func main() {
   err = computeTasks()
   checkFail(err)
 
-  getResults()
+  <- canGetResults
+  err = sendCollectResultsRequest()
+  if err != nil {
+    return 
+  }
 
+  results := make(chan common.ComputationResult)
+  resultsHandled := make(chan bool)
+  go handleTaskResults(results)
+  receiveResults(results)
+
+  <- resultsHandled
+  
   saveResults()
 }
 

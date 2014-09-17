@@ -10,7 +10,8 @@ type ClientChannels struct {
   healthcheckRequest chan common.Socket
   readcommondata chan common.Socket
   runcomputation chan common.Socket
-  getresults chan common.Socket
+  collectResults chan bool
+  getresult chan common.Socket
   computationResults chan common.ComputationResult
   rmclient chan *Client
 }

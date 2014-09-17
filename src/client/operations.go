@@ -32,7 +32,7 @@ Loop:
   }
 }
 
-func startHealthcheck() {
+func startHealthcheck(canGetResults chan bool) {
   conn, err := net.Dial("tcp", *caddr)
 
   if err != nil {
@@ -48,11 +48,12 @@ func startHealthcheck() {
     return
   }
 
-  go healthcheckMainLoop(cm, conn)
+  go healthcheckMainLoop(cm, conn, canGetResults)
 }
 
-func healthcheckMainLoop(cm ComputationManager, conn net.Conn) {
-    infoChannel := make(chan common.ClientStatus)
+func healthcheckMainLoop(cm ComputationManager, conn net.Conn, canGetResults chan bool) {
+  infoChannel := make(chan common.ClientStatus)
+  notified := false
   
 healthCheck:
   for {
@@ -67,9 +68,12 @@ healthCheck:
     err := binary.Read(conn, binary.BigEndian, &percentage)
 
     if err == nil {
-      // TODO: do smth with health reply
+      if percentage == 100 && !notified {
+        canGetResults <- true
+        notified = true
+      }
     } else {
-      break healthCheck
+      log.Fatal(err)
     }
 
     common.SleepDifference(time.Since(start), 1.0)
@@ -152,7 +156,7 @@ func startComputeConnection() (net.Conn, error) {
   
   if err != nil {
     log.Printf("Unable to connect to coordinator.. exiting")
-    return err
+    return nil, err
   } else {
     log.Printf("Sending main parameters")
   }
@@ -160,9 +164,107 @@ func startComputeConnection() (net.Conn, error) {
   err = binary.Write(conn, binary.BigEndian, common.CRunComputation)
   if err != nil {
     log.Printf("Unable to start main computation session")
+    return nil, err
+  }
+
+  return conn, nil
+}
+
+func sendCollectResultsRequest() error {
+  conn, err := net.Dial("tcp", *caddr)
+  
+  if err == nil {
+    err = binary.Write(conn, binary.BigEndian, common.CCollectResults)
+  }
+
+  if err != nil {
+    log.Printf("Failed to ask coordinator to collect results")
+  }
+
+  return err
+}
+
+func receiveResults(results chan common.ComputationResult) error {
+  // in this version
+  queues_number := 2
+  
+  waitAll := make([]chan bool, queues_number)
+  for i := range waitAll { waitAll[i] := make(chan bool) }
+
+  for i := range waitAll {
+    go receiveResultsLoop(results, waitAll[i])
+  }
+
+  // actually, wait all of them
+  for i := range waitArr { <- waitArr[i] }
+}
+
+func receiveResultsLoop(results chan common.ComputationResult, finished chan bool) {
+  ping := make(chan bool)
+getResults:
+  for {
+    go getOneResult(results, ping)
+
+    // wait for coordinator connection
+    select {
+    case <- ping:
+    case <- time.After(5*time.Second):
+      break getResults
+    }
+
+    // wait for reading task itself
+    select {
+    case <- ping:
+      // TODO: make these numbers constants
+    case <- time.After(1 * time.Minute):
+      break getResults
+    }
+  }
+
+  finished <- true
+}
+
+func getOneResult(results chan common.ComputationResult, ping chan bool) error {
+  conn, err := net.Dial("tcp", *caddr)
+  if err != nil {
     return err
   }
 
-  return nil
+  err = binary.Write(conn, binary.BigEndian, common.CGetResult)
+  if err != nil {
+    return err
+  }
+
+  ping <- true
+
+  var taskID int64
+  err = binary.Read(sock, binary.BigEndian, &taskID)
+
+  if err == nil {
+    gd, err = common.ReadGenericData(sock)
+    ping <- true
+
+    if err == nil {
+      go func(rs chan common.ComputationResult, cr common.ComputationResult) {rs <- cr} (results, ComputationResult{taskID, gd})
+    }
+  }
 }
 
+func handleTaskResults(results chan common.ComputationResult, handled chan bool) {
+saveLoop:
+  for {
+    select {
+    case r := <- results: saveTaskResult(cr)
+    case <- time.After(1 * time.Minute): break saveLoop
+    }
+  }
+
+  handled <- true
+}
+
+func saveTaskResult(cr ComputationResult) {
+  // TODO: implement
+}
+
+func saveResults() {
+}

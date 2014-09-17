@@ -38,11 +38,11 @@ func main() {
     rmworker: make(chan *Worker)}
   
   clientChannels := ClientChannels{
-    addclient: make(chan *Client),
-    healcheckRequest: make(chan common.Socket),
+    addclient: make(chan common.Socket),
+    healthcheckRequest: make(chan common.Socket),
     readcommondata: make(chan common.Socket),
     runcomputation: make(chan common.Socket),
-    collectResults: make(chan bool)
+    collectResults: make(chan bool),
     getresult: make(chan common.Socket),
     rmclient: make(chan *Client)}
   
@@ -59,7 +59,7 @@ func main() {
   go handleWorkersConnections(workerChannels)
 
   go handleWorkerGetResults(workerChannels.taskresult, clientChannels.computationResults)
-  go handleClientGetResults(clientChannels.getresults, clientChannels.computationResults)
+  go handleClientGetResults(clientChannels.getresult, clientChannels.computationResults)
 
   go coordinator.handleClientChannels(clientChannels)
   coordinator.handleWorkerChannels(workerChannels)

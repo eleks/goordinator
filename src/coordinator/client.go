@@ -3,10 +3,11 @@ package main
 import (
   "../common"
   "log"
+  "encoding/binary"
 )
 
 type ClientChannels struct {
-  addclient chan *Client
+  addclient chan common.Socket
   healthcheckRequest chan common.Socket
   readcommondata chan common.Socket
   runcomputation chan common.Socket
@@ -28,16 +29,18 @@ type Client struct {
   ID uint32
 }
 
-func (c *Client) GetStatus() interface{} { return c.status }
-func (c *Client) GetStatusChannel() chan chan interface{} { return c.info }
+func (c Client) GetID() uint32 { return c.ID }
 
-func (c *Client) SetHealthStatus(status byte) { c.status = common.ClientStatus(status) }
-func (c *Client) GetHealthReply() interface{} { return uint32(c.doneTasksCount * 100 / c.tasksCount) }
+func (c Client) GetStatus() interface{} { return c.status }
+func (c Client) GetStatusChannel() chan chan interface{} { return c.info }
 
-func (w *Client) GetResultsFlagChannel() chan bool { return make(chan bool) }
-func (w *Client) SetGetResultsFlag() { }
+func (c Client) SetHealthStatus(status uint32) { c.status = common.ClientStatus(status) }
+func (c Client) GetHealthReply() interface{} { return uint32(c.doneTasksCount * 100 / c.tasksCount) }
 
-func (c *Client) replyInit(success bool) {
+func (w Client) GetResultsFlagChannel() chan bool { return make(chan bool) }
+func (w Client) SetGetResultsFlag() { }
+
+func (c *Client) replyInit(sock common.Socket, success bool) {
   log.Printf("Replying to client. Connection was successful: %v\n", success)
   
   var status byte
@@ -47,7 +50,7 @@ func (c *Client) replyInit(success bool) {
     status = 0
   }
 
-  binary.Write(c.sock, binary.BigEndian, status)
+  binary.Write(sock, binary.BigEndian, status)
 }
 
 func (c *Client) RetrieveStatus() common.ClientStatus {

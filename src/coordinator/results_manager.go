@@ -13,10 +13,10 @@ func handleWorkerGetResults(tasksresults <-chan common.Socket, computationResult
     err = binary.Read(sock, binary.BigEndian, &taskID)
 
     if err == nil {
-      gd, err = common.ReadGenericData(sock)
+      gd, err := common.ReadGenericData(sock)
 
       if err == nil {
-        go func(crch chan-> commmon.ComputationResult, ch common.ComputationResult) {crch <- ch} (computationResults, ComputationResult{taskID, gd})
+        go func(crch chan<- common.ComputationResult, ch common.ComputationResult) {crch <- ch} (computationResults, common.ComputationResult{gd, taskID})
       }
     }
 
@@ -31,7 +31,7 @@ func handleClientGetResults(getResult <-chan common.Socket, computationResults <
 
     err = binary.Write(sock, binary.BigEndian, cr.ID)
     if err == nil {
-      common.WriteGenericData(sock, cr)
+      cr.Write(sock)
     }
 
     sock.Close()

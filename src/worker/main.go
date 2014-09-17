@@ -5,6 +5,7 @@ import (
   "fmt"
   "os"
   "flag"
+  "../common"
 )
 
 // Flags
@@ -29,17 +30,14 @@ func main() {
   cm := ComputationManager{
     ID: 0,
     healthcheckResponse: make(chan int),
-    statusInfo: make(chan chan common.WorkerStatus),
+    statusInfo: make(chan chan uint32),
     pendingTasksCount: 0,
     tasks: make(chan common.Task),
-    results: make(map[int]common.ComputationResult)
-    chResults: make(chan common.ComputationResult)
-    status: common.WReady
-    stopMessages: make(chan chan error)
-    sendingMode: false
-    // buffered
-    stopComputations: make(chan bool, defaultBufferLength)
-  }
+    results: make(map[int64]common.ComputationResult),
+    chResults: make(chan common.ComputationResult),
+    stopMessages: make(chan chan error),
+    sendingMode: false,
+    stopComputations: make(chan bool, defaultBufferLength)}
 
   go cm.processTasks()
 

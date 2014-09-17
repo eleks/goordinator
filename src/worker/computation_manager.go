@@ -14,7 +14,7 @@ type ComputationManager struct {
   statusInfo chan chan uint32
   pendingTasksCount int
   tasks chan common.Task
-  results map[int]common.ComputationResult
+  results map[int64]common.ComputationResult
   chResults chan common.ComputationResult
   stopMessages chan chan error
   tasksDone int  
@@ -90,7 +90,7 @@ Loop:
         log.Printf("Task #%v computation finished", task.ID)
         var cr common.ComputationResult
         cr.ID = task.ID
-        cm.ch_results <- cr
+        cm.chResults <- cr
       }
     }
       // for healthcheck fail
@@ -102,7 +102,6 @@ Loop:
 
 func (cm *ComputationManager) sendTaskResults() {
   log.Printf("Sending task results to coordinator..")
-  rcount := len(cm.results)
 
   // sequential sending to reduce load on coordinator
   finished := make(chan bool)
@@ -131,7 +130,7 @@ func sendTaskResult(cr common.ComputationResult, finished chan bool) {
     return
   }
 
-  err = common.WriteGenericData(conn, cr)
+  err = cr.Write(conn)
   if err != nil {
     return
   }

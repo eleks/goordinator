@@ -66,6 +66,15 @@ type GenericData struct {
   Data []byte
 }
 
+func (gd *GenericData) Write(w io.Writer) (err error) {
+  err = binary.Write(w, binary.BigEndian, gd.Size)
+  if err == nil {
+    err = binary.Write(w, binary.BigEndian, gd.Data)
+  }
+
+  return err
+}
+
 type DataArray []*GenericData
 
 type ComputationResult struct {
@@ -88,13 +97,6 @@ func ReadGenericData(r io.Reader) (gd GenericData, err error) {
   }
 
   return gd, err
-}
-
-func WriteGenericData(w io.Writer, gd GenericData) (err error) {
-  err = binary.Write(w, binary.BigEndian, gd.Size)
-  if err == nil {
-    err = binary.Write(w, binary.BigEndian, gd.Data)
-  }
 }
 
 func ReadDataArray(r io.Reader) (darray DataArray, n int, err error) {
@@ -130,7 +132,7 @@ func WriteDataArray(w io.Writer, darray DataArray) error {
 
 Loop:
   for _, p := range darray {
-    err = WriteGenericData(w, *p)
+    err = p.Write(w)
     if err != nil {
       break Loop
     }

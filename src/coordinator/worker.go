@@ -25,12 +25,11 @@ type Worker struct {
   index int
   // buffered channel (buffer size is capacity)
   tasks chan common.Task
-  stop chan bool
   getResults chan bool
   // buffered channel operates with common.WorkerInfo
   cinfo chan interface{}
   ccinfo chan chan interface{}
-  activeTasks map[int]*common.Task
+  activeTasks map[int64]*common.Task
   // if positive means number of pending tasks 
   // else means number of task to retrieve from worker
   pending int
@@ -40,11 +39,12 @@ type Worker struct {
   getresultsFlag bool
 }
 
-func (w *Worker) GetStatus() interface{} { return w.tasksDone }
-func (w *Worker) GetStatusChannel() chan chan interface{} { return w.ccinfo }
+func (w Worker) GetStatus() interface{} { return w.tasksDone }
+func (w Worker) GetStatusChannel() chan chan interface{} { return w.ccinfo }
 
-func (w *Worker) SetHealthStatus(tasksDone uint32) { w.tasksDone = tasksDone }
-func (w *Worker) GetHealthReply() interface{} {
+func (w Worker) SetHealthStatus(tasksDone uint32) { w.tasksDone = tasksDone }
+
+func (w Worker) GetHealthReply() interface{} {
   var result int
   if !w.getresultsFlag {
     result = w.pending
@@ -55,10 +55,10 @@ func (w *Worker) GetHealthReply() interface{} {
   return result
 }
 
-func (w *Worker) GetID() uint32 { return w.ID }
+func (w Worker) GetID() uint32 { return w.ID }
 
-func (w *Worker) GetResultsFlagChannel() chan bool { return w.getResults }
-func (w *Worker) SetGetResultsFlag() { w.getresultsFlag = true }
+func (w Worker) GetResultsFlagChannel() chan bool { return w.getResults }
+func (w Worker) SetGetResultsFlag() { w.getresultsFlag = true }
 
 type Pool []*Worker
 

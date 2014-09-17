@@ -9,7 +9,6 @@ import (
 )
 
 func initConnection(cm ComputationManager) (err error) {
-  var conn net.Conn
   reconnectTries := maxReconnectTries
 
 reconnect:
@@ -42,10 +41,12 @@ func connectToCoordinator(cm ComputationManager) (err error) {
     }
   } else {
     log.Println(err)
-  }  
+  }
+
+  return err
 }
 
-func startHealthcheck(cm *ComputationManager) {
+func startHealthcheck(cm ComputationManager) {
   conn, err := net.Dial("tcp", *caddr)
 
   if err != nil {
@@ -70,8 +71,8 @@ func startHealthcheck(cm *ComputationManager) {
   go healthcheckMainLoop(cm, conn)
 }
 
-func healthcheckMainLoop(cm *ComputationManager, conn net.Conn) {
-  infoChannel := make(chan common.WorkerStatus)
+func healthcheckMainLoop(cm ComputationManager, conn net.Conn) {
+  infoChannel := make(chan uint32)
 
 healthCheck:
   for {
@@ -87,7 +88,7 @@ healthCheck:
     err := binary.Read(conn, binary.BigEndian, &pending)
 
     if err == nil {
-      go func(c *ComputationManager, p int) {c.healthcheckResponse <- p}(cm, pending)
+      go func(c ComputationManager, p int) {c.healthcheckResponse <- p}(cm, pending)
     } else {
       break healthCheck
     }

@@ -8,9 +8,15 @@ import (
   "time"
 )
 
-func initConnection() {
-  var connected bool
+func readCommonParameters(filename string) (params []Tasker, err error) {
+  return nil, nil
+}
 
+func readRealParameters(filename string) (params []Tasker, err error) {
+  return nil, nil
+}
+
+func initConnection() {
   log.Println("Waiting for a coordinator connection...")
   
 Loop:
@@ -24,8 +30,9 @@ Loop:
       var success byte
       err = binary.Read(conn, binary.BigEndian, &success)
 
-      connected = err == nil && success == 1
-      break Loop
+      if err == nil && success == 1 {
+        break Loop
+      }
     }
 
     time.Sleep(2 * time.Second)
@@ -48,20 +55,16 @@ func startHealthcheck(canGetResults chan bool) {
     return
   }
 
-  go healthcheckMainLoop(cm, conn, canGetResults)
+  go healthcheckMainLoop(conn, canGetResults)
 }
 
-func healthcheckMainLoop(cm ComputationManager, conn net.Conn, canGetResults chan bool) {
-  infoChannel := make(chan common.ClientStatus)
+func healthcheckMainLoop(conn net.Conn, canGetResults chan bool) {
   notified := false
   
-healthCheck:
   for {
     start := time.Now()
     
-    cm.statusInfo <- infoChannel
-    health := <- infoChannel
-    binary.Write(conn, binary.BigEndian, health)
+    binary.Write(conn, binary.BigEndian, common.CIdle)
 
     var percentage uint32
     // TODO: handle error
@@ -90,21 +93,21 @@ func sendCommonParameters(params []Tasker) error {
 
   var buf []byte
 
-  for i, t := range params {
+  for _, t := range params {
     buf, err = t.GobEncode()
     if err == nil {
       gd := common.GenericData{uint32(len(buf)), buf}
-      err = common.WriteGenericData(conn, gd)
+      err = gd.Write(conn)
     }
 
     if err != nil {
       log.Println("Failed to send part of generic data")
-      log.Prinln(err)
+      log.Println(err)
     }
   }
 
   if err == nil {
-    log.Prinln("Common parameters have been sent successfully")
+    log.Println("Common parameters have been sent successfully")
   }
 
   return err
@@ -115,7 +118,7 @@ func startCommonParamsConnection() (conn net.Conn, err error) {
 
   if err != nil {
     log.Printf("Unable to connect to coordinator.. exiting")
-    return err
+    return nil, err
   } else {
     log.Printf("Sending common parameters")
   }
@@ -123,10 +126,10 @@ func startCommonParamsConnection() (conn net.Conn, err error) {
   err = binary.Write(conn, binary.BigEndian, common.CInputParameters)
   if err != nil {
     log.Printf("Unable to init healthcheck session")
-    return err
+    return nil, err
   }
 
-  return nil
+  return conn, nil
 }
 
 func computeTasks(parameters []Tasker, grindNumber int) error {
@@ -151,7 +154,7 @@ func computeTasks(parameters []Tasker, grindNumber int) error {
   return nil
 }
 
-func startComputeConnection() (net.Conn, error) {
+func startComputeConnection() (conn net.Conn, err error) {
   conn, err = net.Dial("tcp", *caddr)
   
   if err != nil {
@@ -184,19 +187,19 @@ func sendCollectResultsRequest() error {
   return err
 }
 
-func receiveResults(results chan common.ComputationResult) error {
+func receiveResults(results chan common.ComputationResult) {
   // in this version
   queues_number := 2
   
   waitAll := make([]chan bool, queues_number)
-  for i := range waitAll { waitAll[i] := make(chan bool) }
+  for i := range waitAll { waitAll[i] = make(chan bool) }
 
   for i := range waitAll {
     go receiveResultsLoop(results, waitAll[i])
   }
 
   // actually, wait all of them
-  for i := range waitArr { <- waitArr[i] }
+  for i := range waitAll { <- waitAll[i] }
 }
 
 func receiveResultsLoop(results chan common.ComputationResult, finished chan bool) {
@@ -238,23 +241,27 @@ func getOneResult(results chan common.ComputationResult, ping chan bool) error {
   ping <- true
 
   var taskID int64
-  err = binary.Read(sock, binary.BigEndian, &taskID)
+  err = binary.Read(conn, binary.BigEndian, &taskID)
 
+  var gd common.GenericData
+  
   if err == nil {
-    gd, err = common.ReadGenericData(sock)
+    gd, err = common.ReadGenericData(conn)
     ping <- true
 
     if err == nil {
-      go func(rs chan common.ComputationResult, cr common.ComputationResult) {rs <- cr} (results, ComputationResult{taskID, gd})
+      go func(rs chan common.ComputationResult, cr common.ComputationResult) {rs <- cr} (results, common.ComputationResult{gd, taskID})
     }
   }
+
+  return nil
 }
 
 func handleTaskResults(results chan common.ComputationResult, handled chan bool) {
 saveLoop:
   for {
     select {
-    case r := <- results: saveTaskResult(cr)
+    case cr := <- results: saveTaskResult(cr)
     case <- time.After(1 * time.Minute): break saveLoop
     }
   }
@@ -262,7 +269,7 @@ saveLoop:
   handled <- true
 }
 
-func saveTaskResult(cr ComputationResult) {
+func saveTaskResult(cr common.ComputationResult) {
   // TODO: implement
 }
 

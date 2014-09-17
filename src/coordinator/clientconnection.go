@@ -42,12 +42,9 @@ func handleClient(sock common.Socket, cch ClientChannels) error {
   optype := common.ClientOperation(opType)
   switch optype {
   case common.CInitSession:
-    cch.addclient <- &Client{
-      status: common.CIdle,
-      info: make(chan chan interface{})
-      ID: 0}
+    cch.addclient <- sock
   case common.CHealthCheck:
-    cch.healthcheck_request <- sock
+    cch.healthcheckRequest <- sock
   case common.CInputParameters:
     cch.readcommondata <- sock
   case common.CRunComputation:

@@ -1,11 +1,11 @@
 package main
 
 import (
+  "../common"
   "flag"
   "log"
   "os"
   "fmt"
-  "time"
 )
 
 // Flags
@@ -36,8 +36,10 @@ func main() {
   
   err = sendCommonParameters(commonParams)
   checkFail(err)
+
+  realParams, err := readRealParameters("anyfile")
  
-  err = computeTasks()
+  err = computeTasks(realParams, *grind)
   checkFail(err)
 
   <- canGetResults
@@ -48,7 +50,7 @@ func main() {
 
   results := make(chan common.ComputationResult)
   resultsHandled := make(chan bool)
-  go handleTaskResults(results)
+  go handleTaskResults(results, resultsHandled)
   receiveResults(results)
 
   <- resultsHandled

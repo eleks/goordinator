@@ -3,7 +3,6 @@ package main
 import (
   "../common"
   "log"
-  "io"
   "time"
   "encoding/binary"
 )
@@ -12,7 +11,7 @@ type HealthReporter interface {
   GetStatus() interface{}
   GetStatusChannel() chan chan interface{}
 
-  SetHealthStatus(status byte)
+  SetHealthStatus(status uint32)
   GetHealthReply() interface{}
 
   GetID() uint32
@@ -22,23 +21,24 @@ type HealthReporter interface {
 }
 
 func checkHealth(hr HealthReporter, sock common.Socket, timeout chan HealthReporter) {
-  defer sock.CloseSock()
+  defer sock.Close()
 
   healthcheck := make(chan uint32, 1)
   reply := make(chan interface{})
   done := make(chan bool, 1)
 
   go func() {
-    var tasksDone uint32
-
+    // means tasksDone for worker
+    var heartBeat uint32
+    
   healthLoop:
     for {      
-      err := binary.Read(sock, binary.BigEndian, &tasksDone)
+      err := binary.Read(sock, binary.BigEndian, &heartBeat)
       if err != nil {
         log.Fatal(err)
       }
 
-      healthcheck <- tasksDone
+      healthcheck <- heartBeat
 
       select {
       case healthReply := <- reply: {

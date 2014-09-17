@@ -46,9 +46,10 @@ func handleWorker(sock common.Socket, wch WorkerChannels) error {
     log.Printf("Worker Init procedure started")
     wch.addworker <- &Worker{
       tasks: make(chan common.Task),
-      stop: make(chan bool),
+      getResults: make(chan bool),
       cinfo: make(chan interface{}),
       ccinfo: make(chan chan interface{}),
+      activeTasks: make(map[int64]*common.Task),
       ID: 0}
     nextID := <- wch.nextID
     binary.Write(sock, binary.BigEndian, nextID)

@@ -21,6 +21,7 @@ type ComputationManager struct {
   sendingMode bool
   // buffered
   stopComputations chan bool
+  computator Computator
 }
 
 func (cm *ComputationManager) handleCommands() {
@@ -80,7 +81,12 @@ Loop:
     select {
     case task := <- cm.tasks: {
       if isFirst {
-        // TODO: handle common params
+        log.Printf("Begin session started")
+        err := cm.computator.beginSession(task)
+        log.Printf("Begin session finished")
+        if err != nil {
+          log.Println(err)
+        }
       } else {      
             log.Printf("Task #%v computation started", task.ID)
 
@@ -88,7 +94,12 @@ Loop:
         // TODO: add failed computations too for overall count
       
         log.Printf("Task #%v computation finished", task.ID)
-        var cr common.ComputationResult
+        cr, err := cm.computator.computeTask(task)
+
+        if err != nil {
+          log.Println(err)
+        }
+        
         cr.ID = task.ID
         cm.chResults <- cr
       }

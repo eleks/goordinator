@@ -40,8 +40,8 @@ WorkerLoop:
 }
 
 func (c *Coordinator)handleClientChannels(cch ClientChannels) {
-  log.Println("Coordinator: worker channels handling started")
-  defer log.Println("Coordinator: worker channels handling finished")
+  log.Println("Coordinator: client channels handling started")
+  defer log.Println("Coordinator: client channels handling finished")
   
 ClientLoop:
   for {

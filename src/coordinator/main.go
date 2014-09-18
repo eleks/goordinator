@@ -10,8 +10,8 @@ import (
 
 // Flags
 var (
-  lwaddr = flag.String("w", "0.0.0.0:4321", "the address to listen on for workers connections")
-  lcaddr = flag.String("c", "0.0.0.0:4322", "the address to listen on for clients connections")
+  lwaddr = flag.String("w", ":54321", "the address to listen on for workers connections")
+  lcaddr = flag.String("c", ":54322", "the address to listen on for clients connections")
   wcap = flag.Int("p", 5, "worker tasks capacity in range (0, 100)")
   logfile = flag.String("l", "coordinator.log", "absolute path to log file")
 )

@@ -9,7 +9,8 @@ import (
 )
 
 func handleClientsConnections(cch ClientChannels) {
-  listener, err := net.Listen("tcp", *lwaddr)
+  log.Printf("Handle client connections: listening to %v", *lcaddr)
+  listener, err := net.Listen("tcp", *lcaddr)
   
   if err != nil {
     log.Fatal(err)

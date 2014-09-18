@@ -9,6 +9,7 @@ import (
 )
 
 func handleWorkersConnections(wch WorkerChannels) {
+  log.Printf("Handle worker connections: listening to %v", *lwaddr)
   listener, err := net.Listen("tcp", *lwaddr)
 
   if err != nil {

@@ -3,7 +3,6 @@ package common
 import (
   "net"
   "io"
-  "time"
   "encoding/binary"  
 )
 
@@ -60,6 +59,14 @@ const (
   CCollectResults
   CGetResult
 )
+
+var ClientOperationStr = map[ClientOperation]string{
+  CInitSession: "InitSession",
+  CHealthCheck: "HealthCheck",
+  CInputParameters: "CommonParameters",
+  CRunComputation: "RunComputation",
+  CCollectResults: "CollectResults",
+  CGetResult: "GetResult",}
 
 type GenericData struct {
   Size uint32
@@ -123,7 +130,8 @@ func ReadDataArray(r io.Reader) (darray DataArray, n int, err error) {
 }
 
 func WriteDataArray(w io.Writer, darray DataArray) error {
-  err := binary.Write(w, binary.BigEndian, uint32(len(darray)))
+  length := uint32(len(darray))
+  err := binary.Write(w, binary.BigEndian, length)
   // TODO: handle errors
 
   if err != nil {
@@ -139,12 +147,4 @@ Loop:
   }
 
   return err
-}
-
-func SleepDifference(elapsed time.Duration, seconds float64) {
-  diff := seconds - elapsed.Seconds()
-  if diff > 0 {
-    ms := int(diff * 1000)
-    time.Sleep(time.Duration(ms) * time.Millisecond)
-  }
 }

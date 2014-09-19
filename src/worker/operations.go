@@ -22,6 +22,8 @@ reconnect:
     time.Sleep(1 * time.Second)
   }
 
+  log.Println("Reconnect loop finished...")
+
   return err
 }
 
@@ -38,9 +40,12 @@ func connectToCoordinator(cm ComputationManager) (err error) {
     err = binary.Read(conn, binary.BigEndian, &id)
     if err == nil {
       cm.ID = id
+      log.Printf("Received id #%v from coordinator", id)
+    } else {
+      log.Printf("Error on receiving Id (%v)", err)
     }
   } else {
-    log.Println(err)
+    log.Printf("Error on dialing coordinator (%v)\n", err)
   }
 
   return err
@@ -58,13 +63,13 @@ func startHealthcheck(cm ComputationManager) {
 
   err = binary.Write(conn, binary.BigEndian, common.WHealthCheck)
   if err != nil {
-    log.Printf("Unable to init healthcheck session")
+    log.Printf("Unable to init healthcheck session (%v)\n", err)
     return
   }
 
   err = binary.Write(conn, binary.BigEndian, cm.ID)
   if err != nil {
-    log.Printf("Unable to send worker ID")
+    log.Printf("Unable to send worker ID (%v)", err)
     return
   }
 
@@ -72,27 +77,33 @@ func startHealthcheck(cm ComputationManager) {
 }
 
 func healthcheckMainLoop(cm ComputationManager, conn net.Conn) {
-  infoChannel := make(chan uint32)
+  infoChannel := make(chan int32)
 
+  log.Println("Healthcheck main loop started")
+  
 healthCheck:
   for {
-    start := time.Now()
+    second := time.After(1*time.Second)
     
     cm.statusInfo <- infoChannel
-    // uint32
+    // int32
     doneTasksCount := <- infoChannel
     binary.Write(conn, binary.BigEndian, doneTasksCount)
 
-    var pending int
+    var pending int32
     // TODO: handle error
     err := binary.Read(conn, binary.BigEndian, &pending)
-
+    
     if err == nil {
-      go func(c ComputationManager, p int) {c.healthcheckResponse <- p}(cm, pending)
+      log.Printf("Pending is %v", pending)
+      go func(c ComputationManager, p int32) {c.healthcheckResponse <- p}(cm, pending)
     } else {
+      log.Printf("Error while healthcheck, %v", err)
       break healthCheck
     }
 
-    common.SleepDifference(time.Since(start), 1.0)
+    <- second
   }
+
+  log.Printf("Healthcheck loop finished")
 }

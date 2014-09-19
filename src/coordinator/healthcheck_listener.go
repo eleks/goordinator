@@ -11,7 +11,7 @@ type HealthReporter interface {
   GetStatus() interface{}
   GetStatusChannel() chan chan interface{}
 
-  SetHealthStatus(status uint32)
+  SetHealthStatus(status int32)
   GetHealthReply() interface{}
 
   GetID() uint32
@@ -23,19 +23,19 @@ type HealthReporter interface {
 func checkHealth(hr HealthReporter, sock common.Socket, timeout chan HealthReporter) {
   defer sock.Close()
 
-  healthcheck := make(chan uint32, 1)
+  healthcheck := make(chan int32, 1)
   reply := make(chan interface{})
   done := make(chan bool, 1)
 
   go func() {
     // means tasksDone for worker
-    var heartBeat uint32
+    var heartBeat int32
     
   healthLoop:
     for {      
       err := binary.Read(sock, binary.BigEndian, &heartBeat)
       if err != nil {
-        log.Fatal(err)
+        log.Printf("Error while reading heartbeat %v", err)
       }
 
       healthcheck <- heartBeat
@@ -45,7 +45,7 @@ func checkHealth(hr HealthReporter, sock common.Socket, timeout chan HealthRepor
         err := binary.Write(sock, binary.BigEndian, healthReply)
         if err != nil {
           // TODO: send errors to channel
-          log.Fatal(err)
+          log.Printf("Error while sending healthcheck reply (%v)", err)
           break healthLoop
         }
       }

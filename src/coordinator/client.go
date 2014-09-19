@@ -34,8 +34,18 @@ func (c Client) GetID() uint32 { return c.ID }
 func (c Client) GetStatus() interface{} { return c.status }
 func (c Client) GetStatusChannel() chan chan interface{} { return c.info }
 
-func (c Client) SetHealthStatus(status uint32) { c.status = common.ClientStatus(status) }
-func (c Client) GetHealthReply() interface{} { return uint32(c.doneTasksCount * 100 / c.tasksCount) }
+func (c Client) SetHealthStatus(status int32) { c.status = common.ClientStatus(status) }
+func (c Client) GetHealthReply() interface{} {
+  var reply int32
+  
+  if c.tasksCount > 0 {
+    reply = int32(c.doneTasksCount * 100 / c.tasksCount)
+  } else {
+    reply = 0
+  }
+
+  return reply
+}
 
 func (w Client) GetResultsFlagChannel() chan bool { return make(chan bool) }
 func (w Client) SetGetResultsFlag() { }

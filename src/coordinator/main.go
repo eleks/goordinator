@@ -42,7 +42,7 @@ func main() {
     healthcheckRequest: make(chan common.Socket),
     readcommondata: make(chan common.Socket),
     runcomputation: make(chan common.Socket),
-    collectResults: make(chan bool),
+
     getresult: make(chan common.Socket),
     rmclient: make(chan *Client)}
   
@@ -50,12 +50,13 @@ func main() {
     pool: make(Pool, 0, initialWorkerCount),
     hash: make(map[uint32]*Worker),
     tasks: make(chan common.Task),
+    collectResults: make(chan bool),
     workerTimeout: make(chan HealthReporter),
     clientTimeout: make(chan HealthReporter),
     workerQuit: make(chan bool),
     clientQuit: make(chan bool)}
 
-  go handleClientsConnections(clientChannels)
+  go handleClientsConnections(coordinator, clientChannels)
   go handleWorkersConnections(workerChannels)
 
   go handleWorkerGetResults(workerChannels.taskresult, clientChannels.computationResults)

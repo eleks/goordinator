@@ -2,7 +2,6 @@ package main
 
 import (
   "../common"
-  "fmt"
   "log"
   "net"
   "encoding/binary"
@@ -19,8 +18,8 @@ func handleWorkersConnections(wch WorkerChannels) {
   // TODO: implement break
   for {
     conn, err := listener.Accept()
-    if err != nil {
-      fmt.Println(err)
+    if err != nil {      
+      log.Printf("Error while acepting connection (%v)\n", err)
       continue
     }
 
@@ -51,7 +50,8 @@ func handleWorker(sock common.Socket, wch WorkerChannels) error {
       cinfo: make(chan interface{}),
       ccinfo: make(chan chan interface{}),
       activeTasks: make(map[int64]*common.Task),
-      ID: 0}
+      ID: 0,
+      initialized: false}
     nextID := <- wch.nextID
     binary.Write(sock, binary.BigEndian, nextID)
     go sock.Close()

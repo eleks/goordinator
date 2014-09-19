@@ -8,12 +8,43 @@ import (
   "time"
 )
 
-func readCommonParameters(filename string) (params []Tasker, err error) {
-  return nil, nil
+func readCommonParameters(filename string) (params []common.Tasker, err error) {
+  params = make([]common.Tasker, 1)
+  data := make([]float32, 1)
+  data[0] = 2.0
+  params[0] = common.TaskParameterFloat{
+    Data: data,
+    Dim1: 1,
+    Dim2: 1,
+    Dim3: 1}
+  return params, nil
 }
 
-func readRealParameters(filename string) (params []Tasker, err error) {
-  return nil, nil
+func readRealParameters(filename string) (params []common.Tasker, err error) {
+  // simulate reading for test
+  h, w, d := 100, 100, 100
+
+  data := make([]float32, h*w*d)
+
+  for i:=0; i < h; i++ {
+    for j:=0; j < w; j++ {
+      for k:=0; k < d; k++ {
+        if i == j && j == k {
+          index := i*w+j + h*w*k
+          data[index] = 1.0
+        }
+      }
+    }
+  }
+
+  params = make([]common.Tasker, 1)
+  params[0] = common.TaskParameterFloat{
+    Data: data,
+    Dim1: uint32(h),
+    Dim2: uint32(w),
+    Dim3: uint32(d)}
+  
+  return params, nil
 }
 
 func initConnection() {
@@ -21,6 +52,7 @@ func initConnection() {
   
 Loop:
   for {
+    log.Printf("Connecting to coordinator %v...\n", *caddr)
     conn, err := net.Dial("tcp", *caddr)
 
     if err == nil {
@@ -37,6 +69,8 @@ Loop:
 
     time.Sleep(2 * time.Second)
   }
+
+  log.Println("Reconnect loop finished...")
 }
 
 func startHealthcheck(canGetResults chan bool) {
@@ -62,11 +96,12 @@ func healthcheckMainLoop(conn net.Conn, canGetResults chan bool) {
   notified := false
   
   for {
-    start := time.Now()
-    
-    binary.Write(conn, binary.BigEndian, common.CIdle)
+    second := time.After(1*time.Second)
 
-    var percentage uint32
+    heartBeat := uint32(common.CIdle)
+    binary.Write(conn, binary.BigEndian, heartBeat)
+
+    var percentage int32
     // TODO: handle error
     err := binary.Read(conn, binary.BigEndian, &percentage)
 
@@ -79,35 +114,20 @@ func healthcheckMainLoop(conn net.Conn, canGetResults chan bool) {
       log.Fatal(err)
     }
 
-    common.SleepDifference(time.Since(start), 1.0)
+    <- second
   }
 }
 
-func sendCommonParameters(params []Tasker) error {
+func sendCommonParameters(params []common.Tasker) error {
   conn, err := startCommonParamsConnection()
   if err != nil { return err }
+
+  common.WriteTaskers(conn, params)
   
-  p := uint32(len(params))
-  err = binary.Write(conn, binary.BigEndian, p)
-  if err != nil { return err }
-
-  var buf []byte
-
-  for _, t := range params {
-    buf, err = t.GobEncode()
-    if err == nil {
-      gd := common.GenericData{uint32(len(buf)), buf}
-      err = gd.Write(conn)
-    }
-
-    if err != nil {
-      log.Println("Failed to send part of generic data")
-      log.Println(err)
-    }
-  }
-
   if err == nil {
     log.Println("Common parameters have been sent successfully")
+  } else  {
+    log.Print("Failed to send part of generic data, error (%v)\n", err)
   }
 
   return err
@@ -132,24 +152,36 @@ func startCommonParamsConnection() (conn net.Conn, err error) {
   return conn, nil
 }
 
-func computeTasks(parameters []Tasker, grindNumber int) error {
+func computeTasks(parameters []common.Tasker, grindNumber int) error {
   conn, err := startComputeConnection()
   if err != nil { return err }
 
-  log.Println("Sending grinded parameters to coordinator")
+  paramLength := uint32(len(parameters))
+  log.Printf("Sending grinded (grind number %v) parameters to coordinator\n", grindNumber)
 
+  paramCount := uint32(len(parameters) * grindNumber)
+  log.Printf("Sending parameters count (%v)", paramCount)
+  binary.Write(conn, binary.BigEndian, paramCount)
+
+
+  log.Printf("Sending %v tasks\n", grindNumber)
   for i:=0; i < grindNumber; i++ {
-    binary.Write(conn, binary.BigEndian, uint32(len(parameters)))
+    log.Printf("Sending parameters length %v", paramLength)
+    binary.Write(conn, binary.BigEndian, paramLength)
 
-    for _, p := range parameters {
-      subtask := p.GetSubTask(i, grindNumber)
+    for j, p := range parameters {
+      subtask := p.GetSubTask(uint32(i), uint32(grindNumber))
+      log.Printf("Dumping subtask %v of parameter %v (size = %v)", j, i, subtask.GetSize())
       err = subtask.Dump(conn)
 
       if err != nil {
+        log.Printf("Error while dumping subtask %v of parameter %v (%v)\n", i, j, err)
         return err
       }
     }
   }
+
+  log.Println("Tasks sent")
 
   return nil
 }
@@ -166,7 +198,7 @@ func startComputeConnection() (conn net.Conn, err error) {
 
   err = binary.Write(conn, binary.BigEndian, common.CRunComputation)
   if err != nil {
-    log.Printf("Unable to start main computation session")
+    log.Printf("Unable to start main computation session (%v)\n", err)
     return nil, err
   }
 

@@ -15,9 +15,9 @@ type TaskParameterFloat struct {
 
   // dim1 * dim2 - size of 2d array
   // dim3 - size of array of 2d arrays
-  Dim1, Dim2, Dim3 int
+  Dim1, Dim2, Dim3 uint32
 
-  ID int
+  ID uint32
 }
 
 func (ft TaskParameterFloat) Dump(w io.Writer) (err error) {
@@ -50,19 +50,19 @@ func (ft TaskParameterFloat) Dump(w io.Writer) (err error) {
 }
 
 func (ft TaskParameterFloat) GetSize() uint32 {
-  sizeofFloat32 := 4
-  dimensionsSize := uint32(3*sizeofFloat32)
+  sizeofFloat32 := uint32(4)
+  dimensionsSize := 3*sizeofFloat32
   dataSize := uint32(ft.Dim1 * ft.Dim2 * ft.Dim3 * sizeofFloat32)
   return dimensionsSize + dataSize
 }
 
-func (ft TaskParameterFloat) GetID() int { return ft.ID }
+func (ft TaskParameterFloat) GetID() uint32 { return ft.ID }
 
-func (ft *TaskParameterFloat) Get(i, j, k int) float32 {
+func (ft *TaskParameterFloat) Get(i, j, k uint32) float32 {
   return ft.Data[(i*ft.Dim2 + j) + ft.Dim1 * ft.Dim2 * k]
 }
 
-func (ft *TaskParameterFloat) Get2D(i, j int) float32 {
+func (ft *TaskParameterFloat) Get2D(i, j uint32) float32 {
   return ft.Data[i*ft.Dim2 + j]
 }
 
@@ -101,14 +101,14 @@ func (ft TaskParameterFloat) GobDecode(buf []byte) error {
   return err
 }
 
-func (ft TaskParameterFloat) GetSubTask(i int, grindNumber int) Tasker {
+func (ft TaskParameterFloat) GetSubTask(i uint32, grindNumber uint32) Tasker {
   h, w, d := ft.Dim1/grindNumber, ft.Dim2, ft.Dim3
   var t Tasker
   t = TaskParameterFloat{ft.Data[i*w:(i+1)*w], h, w, d, 0}
   return t
 }
 
-func (ft TaskParameterFloat) GrindIntoSubtasks(n int) (tasks []Tasker, err error) {
+func (ft TaskParameterFloat) GrindIntoSubtasks(n uint32) (tasks []Tasker, err error) {
   if ft.Dim1 % n != 0 {
     return nil, errors.New("First dimension should be divisible by n without remain")
   }
@@ -118,7 +118,8 @@ func (ft TaskParameterFloat) GrindIntoSubtasks(n int) (tasks []Tasker, err error
   
   w, d := ft.Dim2, ft.Dim3
   
-  for i := range tasks {
+  for k := range tasks {
+    i := uint32(k)
     tasks[i] = TaskParameterFloat{ft.Data[i*w:(i+1)*w], h, w, d, 0}
   }
 

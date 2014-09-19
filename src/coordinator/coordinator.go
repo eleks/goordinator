@@ -14,6 +14,8 @@ type Coordinator struct {
   lastWorkerID uint32
   // buffered
   tasks chan common.Task
+  broadcastTask chan common.Task
+  collectResults chan bool
   workerTimeout chan HealthReporter
   clientTimeout chan HealthReporter
   workerQuit chan bool
@@ -30,7 +32,9 @@ WorkerLoop:
     case w := <- wch.addworker: c.addWorker(w, wch.nextID)
     case wci := <- wch.healthcheckRequest: c.checkHealthWorker(wci)
     case newTask := <- c.tasks: c.dispatch(newTask)
+    case newTask := <- c.broadcastTask: c.broadcast(newTask)
     case wci := <- wch.gettaskRequest: c.sendNextTaskToWorker(wci)
+    case <- c.collectResults: c.setGetResultsFlag()
     case hr := <- c.workerTimeout: c.workerTimeoutOccured(hr)
     case <- c.workerQuit: {
       break WorkerLoop
@@ -49,9 +53,7 @@ ClientLoop:
     case sock := <- cch.addclient: c.addClient(sock)
     case sock := <- cch.healthcheckRequest: c.checkHealthClient(sock)
     case sock := <- cch.readcommondata: c.readCommonData(sock)
-    case sock := <- cch.runcomputation: c.runComputation(sock)
-    case <- cch.collectResults: c.setGetResultsFlag()
-    case <- cch.getresult: 
+    case sock := <- cch.runcomputation: c.runComputation(sock)    
     case <- c.clientTimeout: {
       // TODO: cleanup
     }
@@ -72,12 +74,15 @@ func (c *Coordinator) addWorker(w *Worker, nextIDChan chan <- uint32) {
   nextID := c.getNextWorkerID()
 
   w.ID = nextID
-  heap.Push(&c.pool, *w)
+  heap.Push(&c.pool, w)
   c.hash[nextID] = w
 
   log.Printf("Coordinator: added worker with ID #%v", nextID)
 
   nextIDChan <- nextID
+
+  // TODO: defer func to send this worker common parameters
+  // if it's not initialized yet
 }
 
 func (c *Coordinator) getNextWorkerID() (nextID uint32) {
@@ -139,10 +144,12 @@ func (c *Coordinator) readCommonData(sock common.Socket) {
 
   parameters, _, err := common.ReadDataArray(sock)
   if err != nil {
-    log.Println(err)
+    log.Printf("Error while reading common data (%v)\n", err)
   }
 
   c.client.commondata = parameters
+  log.Println("Sending broadcast common parameters task request...")
+  c.broadcastTask <- common.Task{0, parameters}
 }
 
 func (c *Coordinator) runComputation(sock common.Socket) {
@@ -153,7 +160,7 @@ func (c *Coordinator) runComputation(sock common.Socket) {
   err := binary.Read(sock, binary.BigEndian, &tcount)
   // TODO: handle error
   if err != nil {
-    log.Println(err)
+    log.Fatal("Fatal Error while running computation(%v)\n", err)
   }
 
   log.Printf("Coordinator: going to receive %v tasks\n", tcount)
@@ -167,7 +174,7 @@ func (c *Coordinator) runComputation(sock common.Socket) {
       c.tasks <- common.Task{taskID, parameters}
       taskID++
     } else {
-      log.Fatal(err)
+      log.Fatal("Fatal while running computation: (%v)\n", err)
     }
   }
 
@@ -201,11 +208,13 @@ func (c *Coordinator) workerTimeoutOccured(hr HealthReporter) {
 }
 
 func (c *Coordinator)dispatch(task common.Task) {
+  log.Printf("Dispatching task with id #%v", task.ID)
+  
   w := heap.Pop(&c.pool).(*Worker)
 
-  // TODO: add assert pending >= 0
+  pending := w.pending - w.tasksDone
   
-  if w.pending < w.capacity && w.pending >= 0 {
+  if pending < w.capacity && pending >= 0 {
     go func(tasks chan common.Task, t common.Task) {tasks <- t} (w.tasks, task)
     w.pending++
   } else {
@@ -219,7 +228,8 @@ func (c *Coordinator)dispatch(task common.Task) {
 func (c *Coordinator)broadcast(task common.Task) {
   log.Println("Broadcasting task between workers")
   for _, w := range c.pool {
-    w.tasks <- task
+    go func(tasks chan common.Task, t common.Task) {tasks <- t} (w.tasks, task)
+    w.initialized = true
   }
 }
 

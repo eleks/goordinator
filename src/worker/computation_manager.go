@@ -10,14 +10,14 @@ import (
 type ComputationManager struct {
   // always greater than zero (0 == unassigned)
   ID uint32
-  healthcheckResponse chan int
-  statusInfo chan chan uint32
-  pendingTasksCount int
+  healthcheckResponse chan int32
+  statusInfo chan chan int32
+  pendingTasksCount int32
   tasks chan common.Task
-  results map[int64]common.ComputationResult
-  chResults chan common.ComputationResult
+  results map[int64]*common.ComputationResult
+  chResults chan *common.ComputationResult
   stopMessages chan chan error
-  tasksDone int  
+  tasksDone int32
   sendingMode bool
   // buffered
   stopComputations chan bool
@@ -25,11 +25,12 @@ type ComputationManager struct {
 }
 
 func (cm *ComputationManager) handleCommands() {
+  log.Println("Handle commands loop started")
   var err error
 LoopCommands:
   for {
     select {
-    case infoChannel := <- cm.statusInfo: infoChannel <- uint32(cm.tasksDone)
+    case infoChannel := <- cm.statusInfo: infoChannel <- cm.tasksDone
     case pending := <- cm.healthcheckResponse: {
       if pending > cm.pendingTasksCount {
         go cm.downloadNewTask()
@@ -40,9 +41,11 @@ LoopCommands:
       }
     }
     case result := <- cm.chResults: {
+      log.Printf("Task execution result received for task with ID #%v", result.ID)
+      
       if !cm.sendingMode {
         cm.results[result.ID] = result
-        cm.tasksDone = len(cm.results)
+        cm.tasksDone = int32(len(cm.results))
       } else {
         log.Fatal("Attempt to save result while sending results")
       }
@@ -56,6 +59,8 @@ LoopCommands:
 }
 
 func (cm *ComputationManager) downloadNewTask() {
+  log.Println("Downloading new task...")
+  
   conn, _ := net.Dial("tcp", *caddr)
 
   binary.Write(conn, binary.BigEndian, common.WGetTask)
@@ -85,7 +90,7 @@ Loop:
         err := cm.computator.beginSession(task)
         log.Printf("Begin session finished")
         if err != nil {
-          log.Println(err)
+          log.Printf("Error on begin session (%v\n)", err)
         }
       } else {      
             log.Printf("Task #%v computation started", task.ID)
@@ -97,7 +102,7 @@ Loop:
         cr, err := cm.computator.computeTask(task)
 
         if err != nil {
-          log.Println(err)
+          log.Printf("Error on compute task (%v)\n", err)
         }
         
         cr.ID = task.ID
@@ -123,7 +128,7 @@ func (cm *ComputationManager) sendTaskResults() {
   }
 }
 
-func sendTaskResult(cr common.ComputationResult, finished chan bool) {
+func sendTaskResult(cr *common.ComputationResult, finished chan bool) {
   defer func(f chan bool) {f <- true}(finished)
 
   conn, err := net.Dial("tcp", *caddr)

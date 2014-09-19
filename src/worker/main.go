@@ -10,7 +10,7 @@ import (
 
 // Flags
 var (
-  caddr = flag.String("c", "0.0.0.0:4321", "the address of coordinator")
+  caddr = flag.String("c", ":54321", "the address of coordinator")
   logfile = flag.String("l", "worker.log", "absolute path to log file")
 )
 
@@ -29,15 +29,16 @@ func main() {
 
   cm := ComputationManager{
     ID: 0,
-    healthcheckResponse: make(chan int),
-    statusInfo: make(chan chan uint32),
+    healthcheckResponse: make(chan int32),
+    statusInfo: make(chan chan int32),
     pendingTasksCount: 0,
     tasks: make(chan common.Task),
-    results: make(map[int64]common.ComputationResult),
-    chResults: make(chan common.ComputationResult),
+    results: make(map[int64]*common.ComputationResult),
+    chResults: make(chan *common.ComputationResult),
     stopMessages: make(chan chan error),
     sendingMode: false,
-    stopComputations: make(chan bool, defaultBufferLength)}
+    stopComputations: make(chan bool, defaultBufferLength),
+    computator: MatrixComputator{}}
 
   go cm.processTasks()
 

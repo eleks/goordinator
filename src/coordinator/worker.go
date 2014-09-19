@@ -12,6 +12,7 @@ type WorkerChannels struct {
   nextID chan uint32
   gettaskRequest chan WCInfo
   taskresult chan common.Socket
+  collectResults chan bool
   rmworker chan *Worker
 }
 
@@ -32,20 +33,21 @@ type Worker struct {
   activeTasks map[int64]*common.Task
   // if positive means number of pending tasks 
   // else means number of task to retrieve from worker
-  pending int
-  capacity int
-  tasksDone uint32
+  pending int32
+  capacity int32
+  tasksDone int32
   ID uint32
   getresultsFlag bool
+  initialized bool
 }
 
 func (w Worker) GetStatus() interface{} { return w.tasksDone }
 func (w Worker) GetStatusChannel() chan chan interface{} { return w.ccinfo }
 
-func (w Worker) SetHealthStatus(tasksDone uint32) { w.tasksDone = tasksDone }
+func (w Worker) SetHealthStatus(tasksDone int32) { w.tasksDone = tasksDone }
 
 func (w Worker) GetHealthReply() interface{} {
-  var result int
+  var result int32
   if !w.getresultsFlag {
     result = w.pending
   } else {
@@ -62,7 +64,7 @@ func (w Worker) SetGetResultsFlag() { w.getresultsFlag = true }
 
 type Pool []*Worker
 
-func (p Pool) Len() int { return len(p); }
+func (p Pool) Len() int { return len(p) }
 
 func (p Pool) Less(i, j int) bool {
   return p[i].pending < p[j].pending

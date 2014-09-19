@@ -10,11 +10,11 @@ import (
 
 // Flags
 var (
-  caddr = flag.String("c", "0.0.0.0:4321", "the address of coordinator")
+  caddr = flag.String("c", ":54322", "the address of coordinator")
   input = flag.String("i", "input", "file with input parameters for computations")
   // 4 - fairly chosen by dice roll
   grind = flag.Int("n", 4, "grind number")
-  logfile = flag.String("l", "worker.log", "absolute path to log file")
+  logfile = flag.String("l", "client.log", "absolute path to log file")
 )
 
 

@@ -5,10 +5,9 @@ import (
   "net"
   "encoding/binary"
   "log"
-  "fmt"
 )
 
-func handleClientsConnections(cch ClientChannels) {
+func handleClientsConnections(coordinator *Coordinator, cch ClientChannels) {
   log.Printf("Handle client connections: listening to %v", *lcaddr)
   listener, err := net.Listen("tcp", *lcaddr)
   
@@ -19,18 +18,18 @@ func handleClientsConnections(cch ClientChannels) {
   for {
     conn, err := listener.Accept()
     if err != nil {
-      fmt.Println(err)
+      log.Printf("Error while accepting client connection (%v)\n", err)
       continue
     }
 
     sock := common.Socket{conn, make(chan bool)}
 
     // TODO: implement break
-    go handleClient(sock, cch)
+    go handleClient(sock, coordinator, cch)
   }
 }
 
-func handleClient(sock common.Socket, cch ClientChannels) error {
+func handleClient(sock common.Socket, coordinator *Coordinator, cch ClientChannels) error {
   log.Printf("Client connected from %v\n", sock.RemoteAddr())
   
   var opType byte
@@ -41,6 +40,9 @@ func handleClient(sock common.Socket, cch ClientChannels) error {
   }
 
   optype := common.ClientOperation(opType)
+  opTypeStr, knownCode := common.ClientOperationStr[optype]
+  if !knownCode { opTypeStr = "Unknown" }
+  
   switch optype {
   case common.CInitSession:
     cch.addclient <- sock
@@ -51,15 +53,15 @@ func handleClient(sock common.Socket, cch ClientChannels) error {
   case common.CRunComputation:
     cch.runcomputation <- sock
   case common.CCollectResults:
-    cch.collectResults <- true
+    coordinator.collectResults <- true
     go sock.Close()
   case common.CGetResult:
     cch.getresult <- sock
   }
 
-  log.Println("Waiting for client connection to finish")
+  log.Printf("Waiting for client connection with code [%v] to finish", opTypeStr)
   <-sock.Done
-  log.Printf("Client disconnected from %v\n", sock.RemoteAddr())
+  log.Printf("Client with code [%v] disconnected from %v", opTypeStr, sock.RemoteAddr())
   
   return nil
 }

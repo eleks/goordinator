@@ -92,8 +92,9 @@ healthCheck:
 
     var pending int32
     err := binary.Read(conn, binary.BigEndian, &pending)
-    
+
     if err == nil {
+      log.Printf("Pending %v tasks", pending)
       go func(c ComputationManager, p int32) {c.healthcheckResponse <- p}(cm, pending)
     } else {
       log.Printf("Error while healthcheck, %v", err)

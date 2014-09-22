@@ -8,7 +8,6 @@ import (
 
 type WorkerChannels struct {
   addworker chan *Worker
-  initWorker chan *Worker
   healthcheckRequest chan WCInfo
   nextID chan uint32
   gettaskRequest chan WCInfo
@@ -25,7 +24,7 @@ type WCInfo struct {
 type Worker struct {
   index int
   // buffered channel (buffer size is capacity)
-  tasks chan common.Task
+  tasks chan *common.Task
   getResults chan bool
   // buffered channel operates with common.WorkerInfo
   cinfo chan interface{}
@@ -49,12 +48,13 @@ func (w *Worker) IncPendingTasks() {
   w.updatePending <- w.pending
 }
 
-func (w Worker) GetStatus() interface{} { return w.tasksDone }
-func (w Worker) GetStatusChannel() chan chan interface{} { return w.ccinfo }
+func (w *Worker) GetStatus() interface{} { return w.tasksDone }
+func (w *Worker) GetStatusChannel() chan chan interface{} { return w.ccinfo }
 
-func (w Worker) SetHealthStatus(tasksDone int32) { w.tasksDone = tasksDone }
+func (w *Worker) SetHealthStatus(tasksDone int32) { w.tasksDone = tasksDone }
 
-func (w Worker) GetHealthReply() interface{} {
+func (w *Worker) GetHealthReply() interface{} {
+  log.Printf("Worker cached pending %v", w.cachedPending)
   var result int32
   if !w.getresultsFlag {
     result = w.cachedPending
@@ -65,16 +65,17 @@ func (w Worker) GetHealthReply() interface{} {
   return result
 }
 
-func (w Worker) SetHealthReply(pending int32) {
+func (w *Worker) SetHealthReply(pending int32) {
   w.cachedPending = pending
+  log.Printf(")))))))))))))) update pending %v for ID #%v", w.cachedPending, w.ID)
 }
 
-func (w Worker) GetID() uint32 { return w.ID }
+func (w *Worker) GetID() uint32 { return w.ID }
 
-func (w Worker) GetResultsFlagChannel() chan bool { return w.getResults }
-func (w Worker) SetGetResultsFlag() { w.getresultsFlag = true }
+func (w *Worker) GetResultsFlagChannel() chan bool { return w.getResults }
+func (w *Worker) SetGetResultsFlag() { w.getresultsFlag = true }
 
-func (w Worker) GetUpdateReplyChannel() chan int32 { return w.updatePending }
+func (w *Worker) GetUpdateReplyChannel() chan int32 { return w.updatePending }
 
 type Pool []*Worker
 
@@ -120,7 +121,7 @@ func (w *Worker) sendNextTask(sock common.Socket) error {
 
   _, ok := w.activeTasks[task.ID]
   if !ok {
-    w.activeTasks[task.ID] = &task
+    w.activeTasks[task.ID] = task
   } else {
     log.Fatalf("Task with ID %v is already sent to this worker", task.ID)
   }

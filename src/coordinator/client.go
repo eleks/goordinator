@@ -11,7 +11,6 @@ type ClientChannels struct {
   healthcheckRequest chan common.Socket
   readcommondata chan common.Socket
   runcomputation chan common.Socket
-  initWorker chan *Worker
   getresult chan common.Socket
   computationResults chan common.ComputationResult
   rmclient chan *Client
@@ -30,13 +29,13 @@ type Client struct {
   ID uint32
 }
 
-func (c Client) GetID() uint32 { return c.ID }
+func (c *Client) GetID() uint32 { return c.ID }
 
-func (c Client) GetStatus() interface{} { return c.status }
-func (c Client) GetStatusChannel() chan chan interface{} { return c.info }
+func (c *Client) GetStatus() interface{} { return c.status }
+func (c *Client) GetStatusChannel() chan chan interface{} { return c.info }
 
-func (c Client) SetHealthStatus(status int32) { c.status = common.ClientStatus(status) }
-func (c Client) GetHealthReply() interface{} {
+func (c *Client) SetHealthStatus(status int32) { c.status = common.ClientStatus(status) }
+func (c *Client) GetHealthReply() interface{} {
   var reply int32
   
   if c.tasksCount > 0 {
@@ -48,12 +47,12 @@ func (c Client) GetHealthReply() interface{} {
   return reply
 }
 
-func (c Client) SetHealthReply(update int32) {}
+func (c *Client) SetHealthReply(update int32) {}
 
-func (c Client) GetResultsFlagChannel() chan bool { return make(chan bool) }
-func (c Client) SetGetResultsFlag() { }
+func (c *Client) GetResultsFlagChannel() chan bool { return make(chan bool) }
+func (c *Client) SetGetResultsFlag() { }
 
-func (c Client) GetUpdateReplyChannel() chan int32 { return make(chan int32) }
+func (c *Client) GetUpdateReplyChannel() chan int32 { return make(chan int32) }
 
 func (c *Client) replyInit(sock common.Socket, success bool) {
   log.Printf("Replying to client. Connection was successful: %v\n", success)

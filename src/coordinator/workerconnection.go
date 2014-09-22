@@ -46,13 +46,13 @@ func handleWorker(sock common.Socket, wch WorkerChannels) error {
   
   switch optype {
   case common.WInit:
-    log.Printf("Worker Init procedure started")
+    log.Println("Adding worker...")
     wch.addworker <- &Worker{
-      tasks: make(chan common.Task),
+      tasks: make(chan *common.Task),
       getResults: make(chan bool),
       cinfo: make(chan interface{}),
       ccinfo: make(chan chan interface{}),
-      updatePending: make(chan int32, 1),
+      updatePending: make(chan int32),
       activeTasks: make(map[int64]*common.Task),
       ID: 0}
     nextID := <- wch.nextID

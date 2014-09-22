@@ -3,6 +3,7 @@ package main
 import (
   "../common"
   "log"
+  "fmt"
   "errors"
 )
 
@@ -23,8 +24,9 @@ func (mc MatrixComputator) beginSession(task common.Task) error {
     return err
   }
 
-  if tpf.GetSize() != 1 {
-    return errors.New("Invalid length of initial parameter")
+  matrixSize := tpf.Dim1 * tpf.Dim2 * tpf.Dim3
+  if matrixSize != 1 {
+    return errors.New(fmt.Sprintf("Invalid length of initial parameter. %v Expected but %v received", 1, matrixSize))
   }
 
   mc.factor = tpf.Get(0, 0, 0)

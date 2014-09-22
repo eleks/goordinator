@@ -64,8 +64,8 @@ func checkHealth(hr HealthReporter, sock common.Socket, timeout chan HealthRepor
   Loop:
   for {
     select {
-    case status := <- healthcheck: {
-      hr.SetHealthStatus(status)
+    case heartBeat := <- healthcheck: {
+      hr.SetHealthStatus(heartBeat)
       reply <- hr.GetHealthReply()
     }
     case update := <- updateReplyChannel: hr.SetHealthReply(update)

@@ -29,8 +29,11 @@ func main() {
     defer f.Close()
   }
 
+  initWorkerChan := make(chan *Worker)
+
   workerChannels := WorkerChannels{
     addworker: make(chan *Worker),
+    initWorker: initWorkerChan,
     healthcheckRequest: make(chan WCInfo),
     nextID: make(chan uint32),
     gettaskRequest: make(chan WCInfo),
@@ -42,15 +45,17 @@ func main() {
     healthcheckRequest: make(chan common.Socket),
     readcommondata: make(chan common.Socket),
     runcomputation: make(chan common.Socket),
-
+    initWorker: initWorkerChan,
     getresult: make(chan common.Socket),
+    computationResults: make(chan common.ComputationResult),
     rmclient: make(chan *Client)}
   
   coordinator := &Coordinator{
     pool: make(Pool, 0, initialWorkerCount),
     hash: make(map[uint32]*Worker),
-    tasks: make(chan common.Task),
-    collectResults: make(chan bool),
+    // buffered
+    tasks: make(chan common.Task, maxWorkerTasksCapacity),
+    broadcastTask: make(chan common.Task),
     workerTimeout: make(chan HealthReporter),
     clientTimeout: make(chan HealthReporter),
     workerQuit: make(chan bool),

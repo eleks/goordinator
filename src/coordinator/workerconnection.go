@@ -41,6 +41,9 @@ func handleWorker(sock common.Socket, wch WorkerChannels) error {
   }
 
   optype := common.WorkerOperation(opType)
+  opTypeStr, knownCode := common.WorkerOperationStr[optype]
+  if !knownCode { opTypeStr = "Unknown" }
+  
   switch optype {
   case common.WInit:
     log.Printf("Worker Init procedure started")
@@ -49,9 +52,9 @@ func handleWorker(sock common.Socket, wch WorkerChannels) error {
       getResults: make(chan bool),
       cinfo: make(chan interface{}),
       ccinfo: make(chan chan interface{}),
+      updatePending: make(chan int32, 1),
       activeTasks: make(map[int64]*common.Task),
-      ID: 0,
-      initialized: false}
+      ID: 0}
     nextID := <- wch.nextID
     binary.Write(sock, binary.BigEndian, nextID)
     go sock.Close()
@@ -73,9 +76,9 @@ func handleWorker(sock common.Socket, wch WorkerChannels) error {
     wch.taskresult <- sock
   }
 
-  // wait until socket is processed  
-  <-sock.Done
+  log.Printf("Waiting for worker connection with code [%v] to finish", opTypeStr)
+  <-sock.Done  
+  log.Printf("Worker with code [%v] disconnected from %v\n", opTypeStr, sock.RemoteAddr())
   
-  log.Printf("Worker disconnected from %v\n", sock.RemoteAddr())
   return nil
 }

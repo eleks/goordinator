@@ -8,11 +8,11 @@ import (
 
 type WorkerChannels struct {
   addworker chan *Worker
+  initWorker chan *Worker
   healthcheckRequest chan WCInfo
   nextID chan uint32
   gettaskRequest chan WCInfo
   taskresult chan common.Socket
-  collectResults chan bool
   rmworker chan *Worker
 }
 
@@ -30,15 +30,23 @@ type Worker struct {
   // buffered channel operates with common.WorkerInfo
   cinfo chan interface{}
   ccinfo chan chan interface{}
+  updatePending chan int32
   activeTasks map[int64]*common.Task
   // if positive means number of pending tasks 
   // else means number of task to retrieve from worker
+  // used only from coordinator's select
   pending int32
+  // used only for healthcheck
+  cachedPending int32
   capacity int32
   tasksDone int32
   ID uint32
   getresultsFlag bool
-  initialized bool
+}
+
+func (w *Worker) IncPendingTasks() {
+  w.pending++
+  w.updatePending <- w.pending
 }
 
 func (w Worker) GetStatus() interface{} { return w.tasksDone }
@@ -49,7 +57,7 @@ func (w Worker) SetHealthStatus(tasksDone int32) { w.tasksDone = tasksDone }
 func (w Worker) GetHealthReply() interface{} {
   var result int32
   if !w.getresultsFlag {
-    result = w.pending
+    result = w.cachedPending
   } else {
     result = -1
   }
@@ -57,10 +65,16 @@ func (w Worker) GetHealthReply() interface{} {
   return result
 }
 
+func (w Worker) SetHealthReply(pending int32) {
+  w.cachedPending = pending
+}
+
 func (w Worker) GetID() uint32 { return w.ID }
 
 func (w Worker) GetResultsFlagChannel() chan bool { return w.getResults }
 func (w Worker) SetGetResultsFlag() { w.getresultsFlag = true }
+
+func (w Worker) GetUpdateReplyChannel() chan int32 { return w.updatePending }
 
 type Pool []*Worker
 

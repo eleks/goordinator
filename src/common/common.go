@@ -24,6 +24,13 @@ const (
   WSendResult
 )
 
+var WorkerOperationStr = map[WorkerOperation]string {
+  WInit: "Init",
+  WHealthCheck: "Healthcheck",
+  WGetTask: "GetTask",
+  WTaskCompeted: "TaskCompleted",
+  WSendResult: "SendResult",}
+
 type Task struct {
   ID int64
   Parameters DataArray

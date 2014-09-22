@@ -11,7 +11,7 @@ type ClientChannels struct {
   healthcheckRequest chan common.Socket
   readcommondata chan common.Socket
   runcomputation chan common.Socket
-  collectResults chan bool
+  initWorker chan *Worker
   getresult chan common.Socket
   computationResults chan common.ComputationResult
   rmclient chan *Client
@@ -19,6 +19,7 @@ type ClientChannels struct {
 
 type Client struct {
   commondata common.DataArray
+  receivedCommonData bool
   // buffered channel operates with int32
   info chan chan interface{}
 
@@ -47,8 +48,12 @@ func (c Client) GetHealthReply() interface{} {
   return reply
 }
 
-func (w Client) GetResultsFlagChannel() chan bool { return make(chan bool) }
-func (w Client) SetGetResultsFlag() { }
+func (c Client) SetHealthReply(update int32) {}
+
+func (c Client) GetResultsFlagChannel() chan bool { return make(chan bool) }
+func (c Client) SetGetResultsFlag() { }
+
+func (c Client) GetUpdateReplyChannel() chan int32 { return make(chan int32) }
 
 func (c *Client) replyInit(sock common.Socket, success bool) {
   log.Printf("Replying to client. Connection was successful: %v\n", success)

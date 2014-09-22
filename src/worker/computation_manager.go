@@ -95,9 +95,6 @@ Loop:
       } else {      
             log.Printf("Task #%v computation started", task.ID)
 
-        // TODO: add computation itself
-        // TODO: add failed computations too for overall count
-      
         log.Printf("Task #%v computation finished", task.ID)
         cr, err := cm.computator.computeTask(task)
 

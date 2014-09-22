@@ -13,11 +13,14 @@ type HealthReporter interface {
 
   SetHealthStatus(status int32)
   GetHealthReply() interface{}
+  SetHealthReply(reply int32)
 
   GetID() uint32
 
   GetResultsFlagChannel() chan bool
   SetGetResultsFlag()
+
+  GetUpdateReplyChannel() chan int32
 }
 
 func checkHealth(hr HealthReporter, sock common.Socket, timeout chan HealthReporter) {
@@ -31,8 +34,7 @@ func checkHealth(hr HealthReporter, sock common.Socket, timeout chan HealthRepor
     // means tasksDone for worker
     var heartBeat int32
     
-  healthLoop:
-    for {      
+    for {
       err := binary.Read(sock, binary.BigEndian, &heartBeat)
       if err != nil {
         log.Printf("Error while reading heartbeat %v", err)
@@ -46,16 +48,18 @@ func checkHealth(hr HealthReporter, sock common.Socket, timeout chan HealthRepor
         if err != nil {
           // TODO: send errors to channel
           log.Printf("Error while sending healthcheck reply (%v)", err)
-          break healthLoop
+          return
         }
       }
-      case <- done: break healthLoop
+      case <- done: return
       }
     }
   }()
 
   statusChannel := hr.GetStatusChannel()
   resultsFlagChannel := hr.GetResultsFlagChannel()
+
+  updateReplyChannel := hr.GetUpdateReplyChannel()
 
   Loop:
   for {
@@ -64,9 +68,11 @@ func checkHealth(hr HealthReporter, sock common.Socket, timeout chan HealthRepor
       hr.SetHealthStatus(status)
       reply <- hr.GetHealthReply()
     }
+    case update := <- updateReplyChannel: hr.SetHealthReply(update)
     case hchannel := <- statusChannel: hchannel <- hr.GetStatus()
     case <- resultsFlagChannel: hr.SetGetResultsFlag()
-    case <- time.After(1 * time.Second): {
+    case <- time.After(5 * time.Second): {
+      log.Printf("Timeout in healthcheck")
       // TODO: change timeout
       done <- true
       timeout <- hr

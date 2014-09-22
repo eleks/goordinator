@@ -91,11 +91,9 @@ healthCheck:
     binary.Write(conn, binary.BigEndian, doneTasksCount)
 
     var pending int32
-    // TODO: handle error
     err := binary.Read(conn, binary.BigEndian, &pending)
     
     if err == nil {
-      log.Printf("Pending is %v", pending)
       go func(c ComputationManager, p int32) {c.healthcheckResponse <- p}(cm, pending)
     } else {
       log.Printf("Error while healthcheck, %v", err)

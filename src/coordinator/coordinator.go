@@ -29,7 +29,7 @@ func (c *Coordinator)handleWorkerChannels(wch WorkerChannels) {
 WorkerLoop:
   for {
     select {
-    case w := <- wch.addworker: c.addWorker(w, wch.nextID)
+    case w := <- wch.addworker: c.addWorker(w, wch.initWorker, wch.nextID)
     case wci := <- wch.healthcheckRequest: c.checkHealthWorker(wci)
     case newTask := <- c.tasks: c.dispatch(newTask)
     case newTask := <- c.broadcastTask: c.broadcast(newTask)
@@ -53,6 +53,7 @@ ClientLoop:
     case sock := <- cch.addclient: c.addClient(sock)
     case sock := <- cch.healthcheckRequest: c.checkHealthClient(sock)
     case sock := <- cch.readcommondata: c.readCommonData(sock)
+    case w := <- cch.initWorker: c.initWorker(w)
     case sock := <- cch.runcomputation: c.runComputation(sock)    
     case <- c.clientTimeout: {
       // TODO: cleanup
@@ -70,7 +71,7 @@ func (c *Coordinator)quit() {
   c.clientQuit <- true
 }
 
-func (c *Coordinator) addWorker(w *Worker, nextIDChan chan <- uint32) {
+func (c *Coordinator) addWorker(w *Worker, initWorker chan *Worker, nextIDChan chan <- uint32) {
   nextID := c.getNextWorkerID()
 
   w.ID = nextID
@@ -81,8 +82,16 @@ func (c *Coordinator) addWorker(w *Worker, nextIDChan chan <- uint32) {
 
   nextIDChan <- nextID
 
-  // TODO: defer func to send this worker common parameters
-  // if it's not initialized yet
+  go func(iw chan *Worker, worker *Worker) {iw <- worker}(initWorker, w)
+}
+
+func (c *Coordinator) initWorker(w *Worker) {
+  log.Printf("Initializing connected worker with id #%v", w.ID)
+  if c.client != nil && c.client.receivedCommonData {
+    log.Printf("Adding common task to worker with id #%v", w.ID)
+    go func(tasks chan common.Task, t common.Task) {tasks <- t} (w.tasks, common.Task{0, c.client.commondata})
+    w.IncPendingTasks()
+  }
 }
 
 func (c *Coordinator) getNextWorkerID() (nextID uint32) {
@@ -148,8 +157,9 @@ func (c *Coordinator) readCommonData(sock common.Socket) {
   }
 
   c.client.commondata = parameters
+  c.client.receivedCommonData = true
   log.Println("Sending broadcast common parameters task request...")
-  c.broadcastTask <- common.Task{0, parameters}
+  go func(tasks chan common.Task, t common.Task) {tasks <- t} (c.broadcastTask, common.Task{0, parameters})
 }
 
 func (c *Coordinator) runComputation(sock common.Socket) {
@@ -216,7 +226,7 @@ func (c *Coordinator)dispatch(task common.Task) {
   
   if pending < w.capacity && pending >= 0 {
     go func(tasks chan common.Task, t common.Task) {tasks <- t} (w.tasks, task)
-    w.pending++
+    w.IncPendingTasks()
   } else {
     // add same task again
     go func(tasks chan common.Task, t common.Task) {tasks <- t} (c.tasks, task)
@@ -226,10 +236,10 @@ func (c *Coordinator)dispatch(task common.Task) {
 }
 
 func (c *Coordinator)broadcast(task common.Task) {
-  log.Println("Broadcasting task between workers")
+  log.Printf("Broadcasting task between %v worker(s)", len(c.pool))
   for _, w := range c.pool {
     go func(tasks chan common.Task, t common.Task) {tasks <- t} (w.tasks, task)
-    w.initialized = true
+    w.IncPendingTasks()
   }
 }
 

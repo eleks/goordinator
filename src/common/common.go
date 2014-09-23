@@ -115,25 +115,25 @@ func ReadGenericData(r io.Reader) (gd GenericData, err error) {
   return gd, err
 }
 
-func ReadDataArray(r io.Reader) (darray DataArray, n int, err error) {
+func ReadDataArray(r io.Reader) (darray DataArray, n int64, err error) {
   var pcount, i uint32
+
+  n = 0
 
   // number of parameters
   err = binary.Read(r, binary.BigEndian, &pcount)
+  n += 4
 
-  log.Printf("Going to read %v parameter(s)", pcount)
   // TODO: handle error
 
-  darray = make(DataArray, pcount)  
+  darray = make(DataArray, pcount)
   
   for i = 0; i < pcount; i++ {
-    log.Printf("Reading parameter %v started", i)
-    p, err := ReadGenericData(r)
-    log.Printf("Reading parameter %v finished", i)
+    gd, err := ReadGenericData(r)
 
     if err == nil {
-      darray[i] = &p
-      n++
+      darray[i] = &gd
+      n += int64(gd.Size)
     } else {
       darray[i] = nil
     } 
@@ -142,22 +142,26 @@ func ReadDataArray(r io.Reader) (darray DataArray, n int, err error) {
   return darray, n, err
 }
 
-func WriteDataArray(w io.Writer, darray DataArray) error {
+func WriteDataArray(w io.Writer, darray DataArray) (n int64, err error) {
   length := uint32(len(darray))
-  err := binary.Write(w, binary.BigEndian, length)
+  err = binary.Write(w, binary.BigEndian, length)
   // TODO: handle errors
 
   if err != nil {
-    return err
+    return 0, err
   }
 
+  n = 4
+
 Loop:
-  for _, p := range darray {
-    err = p.Write(w)
+  for _, gd := range darray {
+    err = gd.Write(w)
     if err != nil {
       break Loop
     }
+
+    n += int64(gd.Size)
   }
 
-  return err
+  return n, err
 }

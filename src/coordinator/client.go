@@ -18,15 +18,19 @@ type ClientChannels struct {
 
 type Client struct {
   commondata *common.DataArray
-  receivedCommonData bool
   // buffered channel operates with int32
   info chan chan interface{}
-
-  tasksCount uint32
-  doneTasksCount uint32
+  updateTasksDone chan int64
+  
+  tasksCount int64
+  doneTasksCount int64
   status common.ClientStatus
 
   ID uint32
+}
+
+func (c *Client) UpdateDoneTasks(doneTasksCount int64) {
+  c.updateTasksDone <- doneTasksCount
 }
 
 func (c *Client) GetID() uint32 { return c.ID }
@@ -34,7 +38,7 @@ func (c *Client) GetID() uint32 { return c.ID }
 func (c *Client) GetStatus() interface{} { return c.status }
 func (c *Client) GetStatusChannel() chan chan interface{} { return c.info }
 
-func (c *Client) SetHealthStatus(status int32) { c.status = common.ClientStatus(status) }
+func (c *Client) SetHealthStatus(status int64) { c.status = common.ClientStatus(status) }
 func (c *Client) GetHealthReply() interface{} {
   var reply int32
   
@@ -47,12 +51,14 @@ func (c *Client) GetHealthReply() interface{} {
   return reply
 }
 
-func (c *Client) SetHealthReply(update int32) {}
+func (c *Client) SetHealthReply(update int64) {
+  c.doneTasksCount = update
+}
 
 func (c *Client) GetResultsFlagChannel() chan bool { return make(chan bool) }
 func (c *Client) SetGetResultsFlag() { }
 
-func (c *Client) GetUpdateReplyChannel() chan int32 { return make(chan int32) }
+func (c *Client) GetUpdateReplyChannel() chan int64 { return c.updateTasksDone }
 
 func (c *Client) replyInit(sock common.Socket, success bool) {
   log.Printf("Replying to client. Connection was successful: %v\n", success)

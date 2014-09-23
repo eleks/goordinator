@@ -106,7 +106,10 @@ func healthcheckMainLoop(conn net.Conn, canGetResults chan bool) {
     err := binary.Read(conn, binary.BigEndian, &percentage)
 
     if err == nil {
+      log.Printf("Percentage is %v", percentage)
+      
       if percentage == 100 && !notified {
+        log.Printf("Notifying abour results")
         canGetResults <- true
         notified = true
       }
@@ -169,7 +172,7 @@ func computeTasks(parameters []common.Tasker, grindNumber int) error {
 
     for j, p := range parameters {
       subtask := p.GetSubTask(uint32(i), uint32(grindNumber))
-      //log.Printf("Dumping subtask %v of parameter %v (size = %v)", j, i, subtask.GetBinarySize())
+      log.Printf("Dumping subtask %v of parameter %v (size = %v)", j, i, subtask.GetBinarySize())
       
       bw.Write(subtask)
 

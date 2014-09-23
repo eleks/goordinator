@@ -11,16 +11,16 @@ type HealthReporter interface {
   GetStatus() interface{}
   GetStatusChannel() chan chan interface{}
 
-  SetHealthStatus(status int32)
+  SetHealthStatus(status int64)
   GetHealthReply() interface{}
-  SetHealthReply(reply int32)
+  SetHealthReply(reply int64)
 
   GetID() uint32
 
   GetResultsFlagChannel() chan bool
   SetGetResultsFlag()
 
-  GetUpdateReplyChannel() chan int32
+  GetUpdateReplyChannel() chan int64
 }
 
 func checkHealth(hr HealthReporter, sock common.Socket, timeout chan HealthReporter) {
@@ -65,7 +65,7 @@ func checkHealth(hr HealthReporter, sock common.Socket, timeout chan HealthRepor
   for {
     select {
     case heartBeat := <- healthcheck: {
-      hr.SetHealthStatus(heartBeat)
+      hr.SetHealthStatus(int64(heartBeat))
       reply <- hr.GetHealthReply()
     }
     case update := <- updateReplyChannel: hr.SetHealthReply(update)

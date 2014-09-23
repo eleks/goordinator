@@ -56,10 +56,6 @@ func (mc MatrixComputator) computeTask(task *common.Task) (cr *common.Computatio
     return cr, err
   }
 
-  if tpf.Dim3 != 0 {
-    return cr, errors.New("Invalid parameters size")
-  }
-
   var f common.ExecFunc
   f = func(v float32, factor float32) float32 { return v * factor }
   tpf.Exec(f, mc.factor)

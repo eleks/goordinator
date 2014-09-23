@@ -50,9 +50,8 @@ func handleWorker(sock common.Socket, wch WorkerChannels) error {
     wch.addworker <- &Worker{
       tasks: make(chan *common.Task),
       getResults: make(chan bool),
-      cinfo: make(chan interface{}),
       ccinfo: make(chan chan interface{}),
-      updatePending: make(chan int32),
+      updatePending: make(chan int64),
       activeTasks: make(map[int64]*common.Task),
       capacity: maxWorkerTasksCapacity,
       ID: 0}

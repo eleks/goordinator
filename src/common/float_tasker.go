@@ -18,6 +18,7 @@ type TaskParameterFloat struct {
 
 func (ft *TaskParameterFloat) Dump(w io.Writer) (err error) {
   bw := &BinWriter{W:w}
+
   bw.Write(ft.GetBinarySize())
   bw.Write(ft.Dim1)
   bw.Write(ft.Dim2)

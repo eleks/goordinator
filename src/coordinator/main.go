@@ -54,6 +54,7 @@ func main() {
     broadcastTask: make(chan *common.Task),
     joinPoolQueue: make(chan *Worker),
     initWorkerQueue: make(chan *Worker),
+    doneTasksStat: make(chan int64),
     workerTimeout: make(chan HealthReporter),
     clientTimeout: make(chan HealthReporter),
     workerQuit: make(chan bool),

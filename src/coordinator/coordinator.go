@@ -19,6 +19,7 @@ type Coordinator struct {
   initWorkerQueue chan *Worker
   joinPoolQueue chan *Worker
   collectResults chan bool
+  doneTasksStat chan int64
   workerTimeout chan HealthReporter
   clientTimeout chan HealthReporter
   workerQuit chan bool
@@ -28,6 +29,8 @@ type Coordinator struct {
 func (c *Coordinator)handleWorkerChannels(wch WorkerChannels) {
   log.Println("Coordinator: worker channels handling started")
   defer log.Println("Coordinator: worker channels handling finished")
+
+  statUpdateTicker := time.NewTicker(3*time.Second)
   
 WorkerLoop:
   for {
@@ -39,6 +42,7 @@ WorkerLoop:
     case newTask := <- c.broadcastTask: c.broadcast(newTask)
     case wci := <- wch.gettaskRequest: c.sendNextTaskToWorker(wci)
     case <- c.collectResults: c.setGetResultsFlag()
+    case <- statUpdateTicker.C: c.refreshDoneStats()
     case hr := <- c.workerTimeout: c.workerTimeoutOccured(hr)
     case <- c.workerQuit: {
       break WorkerLoop
@@ -58,6 +62,7 @@ ClientLoop:
     case sock := <- cch.healthcheckRequest: c.checkHealthClient(sock)
     case sock := <- cch.readcommondata: c.readCommonData(sock)
     case w := <- c.initWorkerQueue: c.initWorker(w)
+    case stat := <- c.doneTasksStat: c.updateClientDoneStats(stat)
     case sock := <- cch.runcomputation: c.runComputation(sock)    
     case <- c.clientTimeout: {
       // TODO: cleanup
@@ -93,7 +98,7 @@ func (c *Coordinator) joinPool(w *Worker) {
 }
 
 func (c *Coordinator) initWorker(w *Worker) {
-  if c.client != nil && c.client.receivedCommonData {
+  if c.client != nil && c.client.commondata != nil {
     log.Printf("Initializing connected worker with id #%v", w.ID)
     log.Printf("Adding common task to worker with id #%v", w.ID)
     go func(tasks chan *common.Task, t *common.Task) {tasks <- t} (w.tasks, &common.Task{0, *c.client.commondata})
@@ -115,6 +120,7 @@ func (c *Coordinator) addClient(sock common.Socket) {
   client := Client{
     status: common.CIdle,
     info: make(chan chan interface{}),
+    updateTasksDone: make(chan int64),
     ID: 0}
 
   defer sock.Close()
@@ -167,7 +173,6 @@ func (c *Coordinator) readCommonData(sock common.Socket) {
   }
 
   c.client.commondata = &parameters
-  c.client.receivedCommonData = true
 }
 
 func (c *Coordinator) runComputation(sock common.Socket) {
@@ -185,15 +190,13 @@ func (c *Coordinator) runComputation(sock common.Socket) {
 
   log.Printf("Coordinator: going to receive %v tasks\n", tcount)
 
-  var taskID int64
+  taskID := int64(1)
 
   for i = 0; i < tcount; i++ {
-    log.Printf("Reading data array %v started", i)
     parameters, n, err := common.ReadDataArray(sock)
-    log.Printf("Reading data array %v finished", i)
 
-    if n == len(parameters) && err == nil {
-      log.Printf("Read task with id #%v and size %v", taskID, n)
+    if err == nil {
+      log.Printf("Read task with id #%v and data size [%v]", taskID, n)
       go func(chTasks chan *common.Task, t *common.Task) {chTasks <- t} (c.tasks, &common.Task{taskID, parameters})
       taskID++
     } else {
@@ -203,7 +206,7 @@ func (c *Coordinator) runComputation(sock common.Socket) {
 
    log.Println("Coordinator: finished reading computation tasks")
 
-  c.client.tasksCount = tcount
+  c.client.tasksCount = taskID
 }
 
 func (c *Coordinator) sendNextTaskToWorker(wci WCInfo) {
@@ -243,6 +246,7 @@ func (c *Coordinator)dispatch(task *common.Task) {
     log.Printf("Worker tasks done is %v", w.tasksDone)
     
     if pending < w.capacity && pending >= 0 {
+      log.Printf("Added task #%v to worker %v", task.ID, w.ID)
       go func(tasks chan *common.Task, t *common.Task) {tasks <- t} (w.tasks, task)
       w.IncPendingTasks()
       addedTask = true
@@ -253,7 +257,38 @@ func (c *Coordinator)dispatch(task *common.Task) {
 
   if (!addedTask) {
     go func(tasks chan *common.Task, t *common.Task) {time.Sleep(1*time.Second); tasks <- t} (c.tasks, task)
-  }  
+  }
+}
+
+func (c *Coordinator)refreshDoneStats() {
+  statChan := make(chan interface{})
+  workersCount := len(c.pool)
+
+  if workersCount == 0 {
+    return
+  }
+  
+  for _, w := range c.pool { w.RetrieveStatus(statChan) }
+
+  go func(stat chan interface{}, count int) {
+    sum := int64(0)
+    reports := 0
+    for report := range stat {
+      sum += report.(int64)
+      reports++
+      
+      if reports == count {
+        go func(doneStat chan int64, v int64) {doneStat <- v} (c.doneTasksStat, sum)
+        return
+      }
+    }
+  }(statChan, workersCount)
+}
+
+func (c *Coordinator)updateClientDoneStats(doneTasksCount int64) {
+  if c.client != nil {
+    c.client.UpdateDoneTasks(doneTasksCount)
+  }
 }
 
 func (c *Coordinator)broadcast(task *common.Task) {
@@ -270,3 +305,4 @@ func (c *Coordinator) setGetResultsFlag() {
     go func(ch chan bool) {ch <- true}(getresults)
   }
 }
+

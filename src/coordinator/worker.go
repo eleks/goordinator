@@ -28,18 +28,17 @@ type Worker struct {
   tasks chan *common.Task
   getResults chan bool
   // buffered channel operates with common.WorkerInfo
-  cinfo chan interface{}
   ccinfo chan chan interface{}
-  updatePending chan int32
+  updatePending chan int64
   activeTasks map[int64]*common.Task
   // if positive means number of pending tasks 
   // else means number of task to retrieve from worker
   // used only from coordinator's select
-  pending int32
+  pending int64
   // used only for healthcheck
-  cachedPending int32
-  capacity int32
-  tasksDone int32
+  cachedPending int64
+  capacity int64
+  tasksDone int64
   ID uint32
   getresultsFlag bool
 }
@@ -52,12 +51,12 @@ func (w *Worker) IncPendingTasks() {
 func (w *Worker) GetStatus() interface{} { return w.tasksDone }
 func (w *Worker) GetStatusChannel() chan chan interface{} { return w.ccinfo }
 
-func (w *Worker) SetHealthStatus(tasksDone int32) { w.tasksDone = tasksDone }
+func (w *Worker) SetHealthStatus(tasksDone int64) { w.tasksDone = tasksDone }
 
 func (w *Worker) GetHealthReply() interface{} {
   var result int32
   if !w.getresultsFlag {
-    result = w.cachedPending
+    result = int32(w.cachedPending)
   } else {
     result = -1
   }
@@ -65,7 +64,7 @@ func (w *Worker) GetHealthReply() interface{} {
   return result
 }
 
-func (w *Worker) SetHealthReply(pending int32) {
+func (w *Worker) SetHealthReply(pending int64) {
   w.cachedPending = pending
 }
 
@@ -74,7 +73,7 @@ func (w *Worker) GetID() uint32 { return w.ID }
 func (w *Worker) GetResultsFlagChannel() chan bool { return w.getResults }
 func (w *Worker) SetGetResultsFlag() { w.getresultsFlag = true }
 
-func (w *Worker) GetUpdateReplyChannel() chan int32 { return w.updatePending }
+func (w *Worker) GetUpdateReplyChannel() chan int64 { return w.updatePending }
 
 type Pool []*Worker
 
@@ -109,13 +108,13 @@ func (p *Pool) Pop() interface{} {
   return w
 }
 
-func (w *Worker) RetrieveStatus() uint32 {
-  w.ccinfo <- w.cinfo
-  doneTasksCount := <- w.cinfo
-  return doneTasksCount.(uint32)
+func (w *Worker) RetrieveStatus(cinfo chan interface{}) {
+  w.ccinfo <- cinfo
 }
 
 func (w *Worker) sendNextTask(sock common.Socket) error {
+  defer sock.Close()
+  
   task := <- w.tasks
 
   _, ok := w.activeTasks[task.ID]
@@ -126,10 +125,11 @@ func (w *Worker) sendNextTask(sock common.Socket) error {
   }
 
   err := binary.Write(sock, binary.BigEndian, task.ID)
-  // TODO: handle error
-
+  
   if err == nil {
-    err = common.WriteDataArray(sock, task.Parameters)
+    var n int64
+    n, err = common.WriteDataArray(sock, task.Parameters)
+    log.Printf("Sent %v bytes of task %v data to worker #%v", n, task.ID, w.ID)
   }
 
   return err

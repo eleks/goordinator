@@ -61,18 +61,15 @@ func startHealthcheck(cm ComputationManager) {
     log.Printf("Connected to coordinator. Sending healthcheck session request")
   }
 
-  err = binary.Write(conn, binary.BigEndian, common.WHealthCheck)
-  if err != nil {
-    log.Printf("Unable to init healthcheck session (%v)\n", err)
+  bw := &common.BinWriter{W: conn}
+
+  bw.Write(common.WHealthCheck)
+  bw.Write(cm.ID)
+
+  if bw.Err != nil {
     return
   }
-
-  err = binary.Write(conn, binary.BigEndian, cm.ID)
-  if err != nil {
-    log.Printf("Unable to send worker ID (%v)", err)
-    return
-  }
-
+  
   go healthcheckMainLoop(cm, conn)
 }
 
@@ -94,7 +91,7 @@ healthCheck:
     err := binary.Read(conn, binary.BigEndian, &pending)
 
     if err == nil {
-      log.Printf("Pending %v tasks", pending)
+      log.Printf("Pending %v tasks. Done %v", pending, doneTasksCount)
       go func(c ComputationManager, p int32) {c.healthcheckResponse <- p}(cm, pending)
     } else {
       log.Printf("Error while healthcheck, %v", err)

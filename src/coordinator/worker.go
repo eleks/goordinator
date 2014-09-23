@@ -8,6 +8,7 @@ import (
 
 type WorkerChannels struct {
   addworker chan *Worker
+  joinpool chan *Worker
   healthcheckRequest chan WCInfo
   nextID chan uint32
   gettaskRequest chan WCInfo
@@ -54,7 +55,6 @@ func (w *Worker) GetStatusChannel() chan chan interface{} { return w.ccinfo }
 func (w *Worker) SetHealthStatus(tasksDone int32) { w.tasksDone = tasksDone }
 
 func (w *Worker) GetHealthReply() interface{} {
-  log.Printf("Worker cached pending %v", w.cachedPending)
   var result int32
   if !w.getresultsFlag {
     result = w.cachedPending
@@ -67,7 +67,6 @@ func (w *Worker) GetHealthReply() interface{} {
 
 func (w *Worker) SetHealthReply(pending int32) {
   w.cachedPending = pending
-  log.Printf(")))))))))))))) update pending %v for ID #%v", w.cachedPending, w.ID)
 }
 
 func (w *Worker) GetID() uint32 { return w.ID }

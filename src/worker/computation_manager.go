@@ -13,7 +13,7 @@ type ComputationManager struct {
   healthcheckResponse chan int32
   statusInfo chan chan int32
   pendingTasksCount int32
-  tasks chan common.Task
+  tasks chan *common.Task
   results map[int64]*common.ComputationResult
   chResults chan *common.ComputationResult
   stopMessages chan chan error
@@ -63,8 +63,14 @@ func (cm *ComputationManager) downloadNewTask() {
   
   conn, _ := net.Dial("tcp", *caddr)
 
-  binary.Write(conn, binary.BigEndian, common.WGetTask)
-  binary.Write(conn, binary.BigEndian, cm.ID)
+  bw := &common.BinWriter{W: conn}
+
+  bw.Write(common.WGetTask)
+  bw.Write(cm.ID)
+
+  if bw.Err != nil {
+    return
+  }
 
   var taskID int64
   binary.Read(conn, binary.BigEndian, &taskID)
@@ -75,7 +81,7 @@ func (cm *ComputationManager) downloadNewTask() {
   // TODO: handle error here
 
   log.Printf("Received task #%v", taskID)
-  cm.tasks <- common.Task{taskID, dataArray}
+  cm.tasks <- &common.Task{taskID, dataArray}
 }
 
 func (cm *ComputationManager) processTasks() {
@@ -86,18 +92,22 @@ Loop:
     select {
     case task := <- cm.tasks: {
       if isFirst {
+        isFirst = false
+
         log.Printf("Begin session started")
         err := cm.computator.beginSession(task)
         log.Printf("Begin session finished")
+
+        cm.chResults <- &common.ComputationResult{}
+
         if err != nil {
           log.Printf("Error on begin session (%v\n)", err)
         }
-      } else {      
-            log.Printf("Task #%v computation started", task.ID)
-
-        log.Printf("Task #%v computation finished", task.ID)
+      } else {
+        log.Printf("Task #%v computation started", task.ID)
         cr, err := cm.computator.computeTask(task)
-
+        log.Printf("Task #%v computation finished", task.ID)
+        
         if err != nil {
           log.Printf("Error on compute task (%v)\n", err)
         }
@@ -125,28 +135,20 @@ func (cm *ComputationManager) sendTaskResults() {
   }
 }
 
-func sendTaskResult(cr *common.ComputationResult, finished chan bool) {
+func sendTaskResult(cr *common.ComputationResult, finished chan bool) error {
   defer func(f chan bool) {f <- true}(finished)
 
   conn, err := net.Dial("tcp", *caddr)
   if err != nil {
-    return
+    return err
   }
 
-  err = binary.Write(conn, binary.BigEndian, common.WSendResult)
-  if err != nil {
-    return
-  }
+  bw := &common.BinWriter{W: conn}
+  bw.Write(common.WSendResult)
+  bw.Write(cr.ID)
+  bw.Write(cr)
 
-  err = binary.Write(conn, binary.BigEndian, cr.ID)
-  if err != nil {
-    return
-  }
-
-  err = cr.Write(conn)
-  if err != nil {
-    return
-  }
+  return bw.Err
 }
 
 func (cm *ComputationManager) stop() error {

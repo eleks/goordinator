@@ -52,6 +52,7 @@ func main() {
     // buffered
     tasks: make(chan *common.Task, maxWorkerTasksCapacity),
     broadcastTask: make(chan *common.Task),
+    joinPoolQueue: make(chan *Worker),
     initWorkerQueue: make(chan *Worker),
     workerTimeout: make(chan HealthReporter),
     clientTimeout: make(chan HealthReporter),

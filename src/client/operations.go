@@ -12,7 +12,7 @@ func readCommonParameters(filename string) (params []common.Tasker, err error) {
   params = make([]common.Tasker, 1)
   data := make([]float32, 1)
   data[0] = 2.0
-  params[0] = common.TaskParameterFloat{
+  params[0] = &common.TaskParameterFloat{
     Data: data,
     Dim1: 1,
     Dim2: 1,
@@ -38,7 +38,7 @@ func readRealParameters(filename string) (params []common.Tasker, err error) {
   }
 
   params = make([]common.Tasker, 1)
-  params[0] = common.TaskParameterFloat{
+  params[0] = &common.TaskParameterFloat{
     Data: data,
     Dim1: uint32(h),
     Dim2: uint32(w),
@@ -156,34 +156,33 @@ func computeTasks(parameters []common.Tasker, grindNumber int) error {
   conn, err := startComputeConnection()
   if err != nil { return err }
 
+  bw := &common.BinWriter{W: conn}
+
   paramLength := uint32(len(parameters))
-  log.Printf("Sending grinded (grind number %v) parameters to coordinator\n", grindNumber)
+  log.Printf("Sending grinded (grind number %v) parameters to coordinator...", grindNumber)
 
-  paramCount := uint32(len(parameters) * grindNumber)
-  log.Printf("Sending parameters count (%v)", paramCount)
-  binary.Write(conn, binary.BigEndian, paramCount)
+  log.Printf("Sending batches count (%v)", grindNumber)
+  bw.Write(uint32(grindNumber))
 
-
-  log.Printf("Sending %v tasks\n", grindNumber)
   for i:=0; i < grindNumber; i++ {
-    log.Printf("Sending parameters length %v", paramLength)
-    binary.Write(conn, binary.BigEndian, paramLength)
+    bw.Write(paramLength)
 
     for j, p := range parameters {
       subtask := p.GetSubTask(uint32(i), uint32(grindNumber))
-      log.Printf("Dumping subtask %v of parameter %v (size = %v)", j, i, subtask.GetSize())
-      err = subtask.Dump(conn)
+      //log.Printf("Dumping subtask %v of parameter %v (size = %v)", j, i, subtask.GetBinarySize())
+      
+      bw.Write(subtask)
 
-      if err != nil {
-        log.Printf("Error while dumping subtask %v of parameter %v (%v)\n", i, j, err)
-        return err
+      if bw.Err != nil {
+        log.Printf("Error while dumping subtask %v of parameter %v (%v)\n", i, j, bw.Err)
+        return bw.Err
       }
     }
   }
 
-  log.Println("Tasks sent")
+  log.Println("Sending tasks loop finished")
 
-  return nil
+  return bw.Err
 }
 
 func startComputeConnection() (conn net.Conn, err error) {

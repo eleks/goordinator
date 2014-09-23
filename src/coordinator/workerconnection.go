@@ -54,6 +54,7 @@ func handleWorker(sock common.Socket, wch WorkerChannels) error {
       ccinfo: make(chan chan interface{}),
       updatePending: make(chan int32),
       activeTasks: make(map[int64]*common.Task),
+      capacity: maxWorkerTasksCapacity,
       ID: 0}
     nextID := <- wch.nextID
     binary.Write(sock, binary.BigEndian, nextID)

@@ -3,6 +3,7 @@ package common
 import (
   "net"
   "io"
+  "log"
   "encoding/binary"  
 )
 
@@ -81,12 +82,10 @@ type GenericData struct {
 }
 
 func (gd *GenericData) Write(w io.Writer) (err error) {
-  err = binary.Write(w, binary.BigEndian, gd.Size)
-  if err == nil {
-    err = binary.Write(w, binary.BigEndian, gd.Data)
-  }
-
-  return err
+  bw := &BinWriter{W: w}
+  bw.Write(gd.Size)
+  bw.Write(gd.Data)
+  return bw.Err
 }
 
 type DataArray []*GenericData
@@ -102,9 +101,12 @@ func ReadGenericData(r io.Reader) (gd GenericData, err error) {
   var nbytes uint32
   err = binary.Read(r, binary.BigEndian, &nbytes)
 
-  data := make([]byte, nbytes, nbytes)
+  log.Printf("Going to read %v bytes", nbytes)
+  
+  data := make([]byte, nbytes)
   nread, err := io.ReadFull(r, data)
 
+  log.Printf("Reading finished. Read %v bytes", nread)
   // TODO: handle errors here
   if uint32(nread) == nbytes && err == nil {
     gd = GenericData{nbytes, data}
@@ -118,12 +120,16 @@ func ReadDataArray(r io.Reader) (darray DataArray, n int, err error) {
 
   // number of parameters
   err = binary.Read(r, binary.BigEndian, &pcount)
+
+  log.Printf("Going to read %v parameter(s)", pcount)
   // TODO: handle error
 
-  darray = make(DataArray, pcount, pcount)
+  darray = make(DataArray, pcount)  
   
   for i = 0; i < pcount; i++ {
+    log.Printf("Reading parameter %v started", i)
     p, err := ReadGenericData(r)
+    log.Printf("Reading parameter %v finished", i)
 
     if err == nil {
       darray[i] = &p

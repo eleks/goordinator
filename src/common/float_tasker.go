@@ -1,65 +1,55 @@
 package common
 
 import (
-  "bytes"
-  "encoding/binary"
-  "encoding/gob"
-  "errors"
   "io"
 )
 
 // implements Tasker
 type TaskParameterFloat struct {
   // to allow efficient memory caching
-  Data []float32  
+  Data []float32
 
-  // dim1 * dim2 - size of 2d array
-  // dim3 - size of array of 2d arrays
+  // dim1 - number of 2d arrays
+  // dim2*dim3 - dimensions of 2d arrays (height * width)
   Dim1, Dim2, Dim3 uint32
 
   ID uint32
 }
 
-func (ft TaskParameterFloat) Dump(w io.Writer) (err error) {
-  err = binary.Write(w, binary.BigEndian, ft.GetSize())
-  if err != nil {
-    return err
-  }
+func (ft *TaskParameterFloat) Dump(w io.Writer) (err error) {
+  bw := &BinWriter{W:w}
+  bw.Write(ft.GetBinarySize())
+  bw.Write(ft.Dim1)
+  bw.Write(ft.Dim2)
+  bw.Write(ft.Dim3)
+  bw.Write(ft.Data)
 
-  err = binary.Write(w, binary.BigEndian, ft.Dim1)
-  if err != nil {
-    return err
-  }
-
-  err = binary.Write(w, binary.BigEndian, ft.Dim2)
-  if err != nil {
-    return err
-  }
-
-  err = binary.Write(w, binary.BigEndian, ft.Dim3)
-  if err != nil {
-    return err
-  }
-
-  err = binary.Write(w, binary.BigEndian, ft.Data)
-  if err != nil {
-    return err
-  }
-
-  return nil
+  return bw.Err
 }
 
-func (ft TaskParameterFloat) GetSize() uint32 {
+func (ft *TaskParameterFloat) Load(r io.Reader) (err error) {
+  br := &BinReader{R: r}
+  br.Read(&ft.Dim1)
+  br.Read(&ft.Dim2)
+  br.Read(&ft.Dim3)
+
+  ft.Data = make([]float32, ft.Dim1*ft.Dim2*ft.Dim3)
+  br.Read(&ft.Data)
+
+  return br.Err
+}
+
+func (ft *TaskParameterFloat) GetBinarySize() uint32 {
   sizeofFloat32 := uint32(4)
   dimensionsSize := 3*sizeofFloat32
   dataSize := uint32(ft.Dim1 * ft.Dim2 * ft.Dim3 * sizeofFloat32)
   return dimensionsSize + dataSize
 }
 
-func (ft TaskParameterFloat) GetID() uint32 { return ft.ID }
+func (ft *TaskParameterFloat) GetID() uint32 { return ft.ID }
 
-func (ft *TaskParameterFloat) Get(i, j, k uint32) float32 {
-  return ft.Data[(i*ft.Dim2 + j) + ft.Dim1 * ft.Dim2 * k]
+func (ft *TaskParameterFloat) Get(k, i, j uint32) float32 {
+  return ft.Data[(i*ft.Dim2 + j) + ft.Dim2 * ft.Dim3 * k]
 }
 
 func (ft *TaskParameterFloat) Get2D(i, j uint32) float32 {
@@ -74,56 +64,22 @@ func (ft *TaskParameterFloat) Exec(f ExecFunc, param float32) {
   }
 }
 
-func (ft TaskParameterFloat) GobEncode() ([]byte, error) {
-  w := new(bytes.Buffer)
-  encoder := gob.NewEncoder(w)
+func (ft *TaskParameterFloat) GetSubTask(i uint32, grindNumber uint32) Tasker {
+  sliceFrom := i*grindNumber
+  sliceTo := (i + 1)*grindNumber
 
-  // TODO: handle errors here
-  err := encoder.Encode(ft.Dim1)
-  err = encoder.Encode(ft.Dim2)
-  err = encoder.Encode(ft.Dim3)
-
-  err = encoder.Encode(ft.Data)
-
-  return w.Bytes(), err
-}
-
-func (ft TaskParameterFloat) GobDecode(buf []byte) error {
-  r := bytes.NewBuffer(buf)
-  decoder := gob.NewDecoder(r)
-
-  err := decoder.Decode(&ft.Dim1)
-  err = decoder.Decode(&ft.Dim2)
-  err = decoder.Decode(&ft.Dim3)
+  coef := ft.Dim2*ft.Dim3
+  maxIndex := ft.Dim1*ft.Dim2*ft.Dim3
   
-  ft.Data = make([]float32, ft.Dim1 * ft.Dim2 * ft.Dim3)
-  err = decoder.Decode(&ft.Data)
-  return err
-}
-
-func (ft TaskParameterFloat) GetSubTask(i uint32, grindNumber uint32) Tasker {
-  h, w, d := ft.Dim1/grindNumber, ft.Dim2, ft.Dim3
   var t Tasker
-  t = TaskParameterFloat{ft.Data[i*w:(i+1)*w], h, w, d, 0}
+  from := sliceFrom*coef
+  to := sliceTo*coef
+  if to > maxIndex { to = maxIndex }
+
+  dim1 := uint32((to - from) / coef)
+  
+  tpf := &TaskParameterFloat{ft.Data[from:to], dim1, ft.Dim2, ft.Dim3, 0}
+
+  t = tpf
   return t
 }
-
-func (ft TaskParameterFloat) GrindIntoSubtasks(n uint32) (tasks []Tasker, err error) {
-  if ft.Dim1 % n != 0 {
-    return nil, errors.New("First dimension should be divisible by n without remain")
-  }
-
-  h := ft.Dim1 / n
-  tasks = make([]Tasker, n)
-  
-  w, d := ft.Dim2, ft.Dim3
-  
-  for k := range tasks {
-    i := uint32(k)
-    tasks[i] = TaskParameterFloat{ft.Data[i*w:(i+1)*w], h, w, d, 0}
-  }
-
-  return tasks, nil
-}
-
-

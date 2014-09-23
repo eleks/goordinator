@@ -32,7 +32,7 @@ func main() {
     healthcheckResponse: make(chan int32),
     statusInfo: make(chan chan int32),
     pendingTasksCount: 0,
-    tasks: make(chan common.Task),
+    tasks: make(chan *common.Task),
     results: make(map[int64]*common.ComputationResult),
     chResults: make(chan *common.ComputationResult),
     stopMessages: make(chan chan error),

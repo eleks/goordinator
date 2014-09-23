@@ -4,6 +4,7 @@ import (
   "../common"
   "log"
   "fmt"
+  "bytes"
   "errors"
 )
 
@@ -11,18 +12,22 @@ type MatrixComputator struct {
   factor float32
 }
 
-func (mc MatrixComputator) beginSession(task common.Task) error {
+func (mc MatrixComputator) beginSession(task *common.Task) error {
   if len(task.Parameters) != 1 {
-    return errors.New("Invalid parameters")
+    return errors.New("Invalid parameters length")
   }
   
   gd := task.Parameters[0]
   tpf := new(common.TaskParameterFloat)
-  err := tpf.GobDecode(gd.Data)
 
+  r := bytes.NewReader(gd.Data)
+  err := tpf.Load(r)
+  
   if err != nil {
     return err
   }
+
+  log.Printf("Decoded parameter (%v, %v, %v) with buffer length %v", tpf.Dim1, tpf.Dim2, tpf.Dim3, len(tpf.Data))
 
   matrixSize := tpf.Dim1 * tpf.Dim2 * tpf.Dim3
   if matrixSize != 1 {
@@ -34,7 +39,7 @@ func (mc MatrixComputator) beginSession(task common.Task) error {
   return nil
 }
 
-func (mc MatrixComputator) computeTask(task common.Task) (cr *common.ComputationResult, err error) {
+func (mc MatrixComputator) computeTask(task *common.Task) (cr *common.ComputationResult, err error) {
   cr = new(common.ComputationResult)
 
   if len(task.Parameters) != 1 {
@@ -44,7 +49,8 @@ func (mc MatrixComputator) computeTask(task common.Task) (cr *common.Computation
   gd := task.Parameters[0]
 
   tpf := new(common.TaskParameterFloat)
-  err = tpf.GobDecode(gd.Data)
+  r := bytes.NewReader(gd.Data)
+  err = tpf.Load(r)
 
   if err != nil {
     return cr, err
@@ -58,8 +64,11 @@ func (mc MatrixComputator) computeTask(task common.Task) (cr *common.Computation
   f = func(v float32, factor float32) float32 { return v * factor }
   tpf.Exec(f, mc.factor)
 
+  var buf bytes.Buffer
+
+  err = tpf.Dump(&buf)
+  
   var replyBuf []byte
-  replyBuf, err = tpf.GobEncode()
 
   if err != nil {
     return cr, err

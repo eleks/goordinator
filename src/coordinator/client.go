@@ -17,7 +17,7 @@ type ClientChannels struct {
 }
 
 type Client struct {
-  commondata common.DataArray
+  commondata *common.DataArray
   receivedCommonData bool
   // buffered channel operates with int32
   info chan chan interface{}

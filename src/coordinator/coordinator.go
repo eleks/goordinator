@@ -3,6 +3,7 @@ package main
 import (
   "../common"
   "log"
+  "time"
   "encoding/binary"
   "container/heap"
 )
@@ -16,6 +17,7 @@ type Coordinator struct {
   tasks chan *common.Task
   broadcastTask chan *common.Task
   initWorkerQueue chan *Worker
+  joinPoolQueue chan *Worker
   collectResults chan bool
   workerTimeout chan HealthReporter
   clientTimeout chan HealthReporter
@@ -31,6 +33,7 @@ WorkerLoop:
   for {
     select {
     case w := <- wch.addworker: c.addWorker(w, wch.nextID)
+    case w := <- c.joinPoolQueue: c.joinPool(w)
     case wci := <- wch.healthcheckRequest: c.checkHealthWorker(wci)
     case newTask := <- c.tasks: c.dispatch(newTask)
     case newTask := <- c.broadcastTask: c.broadcast(newTask)
@@ -75,23 +78,30 @@ func (c *Coordinator)quit() {
 func (c *Coordinator) addWorker(w *Worker, nextIDChan chan <- uint32) {
   nextID := c.getNextWorkerID()
 
-  w.ID = nextID
-  heap.Push(&c.pool, w)
+  w.ID = nextID  
   c.hash[nextID] = w
-
-  log.Printf("Coordinator: added worker with ID #%v", nextID)
 
   nextIDChan <- nextID
   c.initWorkerQueue <- w
+
+  log.Printf("Coordinator: added worker with ID #%v", nextID)
+}
+
+func (c *Coordinator) joinPool(w *Worker) {
+  heap.Push(&c.pool, w)
+  log.Printf("Coordinator: worker with id #%v joined pool", w.ID)
 }
 
 func (c *Coordinator) initWorker(w *Worker) {
-  log.Printf("Initializing connected worker with id #%v", w.ID)
-  
   if c.client != nil && c.client.receivedCommonData {
+    log.Printf("Initializing connected worker with id #%v", w.ID)
     log.Printf("Adding common task to worker with id #%v", w.ID)
-    go func(tasks chan *common.Task, t *common.Task) {tasks <- t} (w.tasks, &common.Task{0, c.client.commondata})
+    go func(tasks chan *common.Task, t *common.Task) {tasks <- t} (w.tasks, &common.Task{0, *c.client.commondata})
     w.IncPendingTasks()
+    c.joinPoolQueue <- w
+  } else {
+    // try to init same worker later
+    go func(queue chan *Worker, worker *Worker) {time.Sleep(1*time.Second); queue <- worker} (c.initWorkerQueue, w)
   }
 }
 
@@ -156,13 +166,13 @@ func (c *Coordinator) readCommonData(sock common.Socket) {
     log.Printf("Error while reading common data (%v)\n", err)
   }
 
-  c.client.commondata = parameters
+  c.client.commondata = &parameters
   c.client.receivedCommonData = true
-  log.Println("Sending broadcast common parameters task request...")
-  go func(tasks chan *common.Task, t *common.Task) {tasks <- t} (c.broadcastTask, &common.Task{0, parameters})
 }
 
 func (c *Coordinator) runComputation(sock common.Socket) {
+  defer sock.Close()
+  
   log.Println("Coordinator: reading specific parameters")
 
   // read all tasks parameters and create tasks
@@ -178,15 +188,20 @@ func (c *Coordinator) runComputation(sock common.Socket) {
   var taskID int64
 
   for i = 0; i < tcount; i++ {
+    log.Printf("Reading data array %v started", i)
     parameters, n, err := common.ReadDataArray(sock)
+    log.Printf("Reading data array %v finished", i)
 
     if n == len(parameters) && err == nil {
-      c.tasks <- &common.Task{taskID, parameters}
+      log.Printf("Read task with id #%v and size %v", taskID, n)
+      go func(chTasks chan *common.Task, t *common.Task) {chTasks <- t} (c.tasks, &common.Task{taskID, parameters})
       taskID++
     } else {
       log.Fatal("Fatal while running computation: (%v)\n", err)
     }
   }
+
+   log.Println("Coordinator: finished reading computation tasks")
 
   c.client.tasksCount = tcount
 }
@@ -219,20 +234,26 @@ func (c *Coordinator) workerTimeoutOccured(hr HealthReporter) {
 
 func (c *Coordinator)dispatch(task *common.Task) {
   log.Printf("Dispatching task with id #%v", task.ID)
-  
-  w := heap.Pop(&c.pool).(*Worker)
+  addedTask := false
 
-  pending := w.pending - w.tasksDone
-  
-  if pending < w.capacity && pending >= 0 {
-    go func(tasks chan *common.Task, t *common.Task) {tasks <- t} (w.tasks, task)
-    w.IncPendingTasks()
-  } else {
-    // add same task again
-    go func(tasks chan *common.Task, t *common.Task) {tasks <- t} (c.tasks, task)
+  if len(c.pool) > 0 {
+    w := heap.Pop(&c.pool).(*Worker)
+
+    pending := w.pending - w.tasksDone
+    log.Printf("Worker tasks done is %v", w.tasksDone)
+    
+    if pending < w.capacity && pending >= 0 {
+      go func(tasks chan *common.Task, t *common.Task) {tasks <- t} (w.tasks, task)
+      w.IncPendingTasks()
+      addedTask = true
+    }
+
+    heap.Push(&c.pool, w)
   }
 
-  heap.Push(&c.pool, w)
+  if (!addedTask) {
+    go func(tasks chan *common.Task, t *common.Task) {time.Sleep(1*time.Second); tasks <- t} (c.tasks, task)
+  }  
 }
 
 func (c *Coordinator)broadcast(task *common.Task) {

@@ -48,7 +48,7 @@ func main() {
     return 
   }
 
-  results := make(chan common.ComputationResult)
+  results := make(chan *common.ComputationResult)
   resultsHandled := make(chan bool)
   go handleTaskResults(results, resultsHandled)
   receiveResults(results)

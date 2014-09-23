@@ -39,8 +39,8 @@ func (mc MatrixComputator) beginSession(task *common.Task) error {
   return nil
 }
 
-func (mc MatrixComputator) computeTask(task *common.Task) (cr *common.ComputationResult, err error) {
-  cr = new(common.ComputationResult)
+func (mc MatrixComputator) computeTask(task *common.Task) (cr common.ComputationResult, err error) {
+  cr = common.ComputationResult{}
 
   if len(task.Parameters) != 1 {
     return cr, errors.New("Invalid parameters")
@@ -61,17 +61,14 @@ func (mc MatrixComputator) computeTask(task *common.Task) (cr *common.Computatio
   tpf.Exec(f, mc.factor)
 
   var buf bytes.Buffer
-
   err = tpf.Dump(&buf)
   
-  var replyBuf []byte
-
   if err != nil {
     return cr, err
   }
 
-  cr.Data = replyBuf
-  cr.Size = uint32(len(replyBuf))
+  cr.Data = buf.Bytes()
+  cr.Size = uint32(len(cr.Data))
 
   return cr, nil
 }

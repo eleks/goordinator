@@ -43,7 +43,7 @@ func main() {
     readcommondata: make(chan common.Socket),
     runcomputation: make(chan common.Socket),
     getresult: make(chan common.Socket),
-    computationResults: make(chan common.ComputationResult),
+    computationResults: make(chan *common.ComputationResult),
     rmclient: make(chan *Client)}
   
   coordinator := &Coordinator{
@@ -52,8 +52,9 @@ func main() {
     // buffered
     tasks: make(chan *common.Task, maxWorkerTasksCapacity),
     broadcastTask: make(chan *common.Task),
-    joinPoolQueue: make(chan *Worker),
     initWorkerQueue: make(chan *Worker),
+    joinPoolQueue: make(chan *Worker),
+    collectResults: make(chan bool),
     doneTasksStat: make(chan int64),
     workerTimeout: make(chan HealthReporter),
     clientTimeout: make(chan HealthReporter),

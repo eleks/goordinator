@@ -113,7 +113,7 @@ Loop:
         }
         
         cr.ID = task.ID
-        cm.chResults <- cr
+        cm.chResults <- &cr
       }
     }
       // for healthcheck fail

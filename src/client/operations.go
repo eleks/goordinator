@@ -221,7 +221,7 @@ func sendCollectResultsRequest() error {
   return err
 }
 
-func receiveResults(results chan common.ComputationResult) {
+func receiveResults(results chan *common.ComputationResult) {
   // in this version
   queues_number := 2
   
@@ -236,7 +236,7 @@ func receiveResults(results chan common.ComputationResult) {
   for i := range waitAll { <- waitAll[i] }
 }
 
-func receiveResultsLoop(results chan common.ComputationResult, finished chan bool) {
+func receiveResultsLoop(results chan *common.ComputationResult, finished chan bool) {
   ping := make(chan bool)
 getResults:
   for {
@@ -261,7 +261,7 @@ getResults:
   finished <- true
 }
 
-func getOneResult(results chan common.ComputationResult, ping chan bool) error {
+func getOneResult(results chan *common.ComputationResult, ping chan bool) error {
   conn, err := net.Dial("tcp", *caddr)
   if err != nil {
     return err
@@ -284,14 +284,14 @@ func getOneResult(results chan common.ComputationResult, ping chan bool) error {
     ping <- true
 
     if err == nil {
-      go func(rs chan common.ComputationResult, cr common.ComputationResult) {rs <- cr} (results, common.ComputationResult{gd, taskID})
+      go func(rs chan *common.ComputationResult, cr *common.ComputationResult) {rs <- cr} (results, &common.ComputationResult{gd, taskID})
     }
   }
 
   return nil
 }
 
-func handleTaskResults(results chan common.ComputationResult, handled chan bool) {
+func handleTaskResults(results chan *common.ComputationResult, handled chan bool) {
 saveLoop:
   for {
     select {
@@ -303,7 +303,8 @@ saveLoop:
   handled <- true
 }
 
-func saveTaskResult(cr common.ComputationResult) {
+func saveTaskResult(cr *common.ComputationResult) {
+  log.Printf("Received task result for task #%v with size %v", cr.ID, cr.Size)
   // TODO: implement
 }
 

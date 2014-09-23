@@ -12,7 +12,7 @@ type ClientChannels struct {
   readcommondata chan common.Socket
   runcomputation chan common.Socket
   getresult chan common.Socket
-  computationResults chan common.ComputationResult
+  computationResults chan *common.ComputationResult
   rmclient chan *Client
 }
 

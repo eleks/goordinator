@@ -15,12 +15,14 @@ func (w *BinWriter) Write(v interface{}) {
   }
 
   switch x := v.(type) {
+  case *Vector3:
+    w.Err = x.Dump(w.W)
   case *GenericData:
-    x.Write(w.W)
+    w.Err = x.Write(w.W)
   case *ComputationResult:
-    x.Write(w.W)
+    w.Err = x.Write(w.W)
   case Tasker:
-    x.Dump(w.W)
+    w.Err = x.Dump(w.W)
   default:
     if w.Err = binary.Write(w.W, binary.BigEndian, v); w.Err == nil {
       w.Size += int64(binary.Size(v))
@@ -39,5 +41,12 @@ func (r *BinReader) Read(v interface{}) {
     return
   }
 
-  r.Err = binary.Read(r.R, binary.BigEndian, v)
+  switch x := v.(type) {
+  case *Vector3:
+    r.Err = x.Load(r.R)
+  default:
+    r.Err = binary.Read(r.R, binary.BigEndian, v)
+  }  
+  
+  
 }

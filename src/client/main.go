@@ -31,7 +31,7 @@ func main() {
   canGetResults := make(chan bool, 1)
   startHealthcheck(canGetResults)
 
-  commonParams, err := readCommonParameters("anyfile")
+  commonParams, err := readCommonParameters() 
   checkFail(err)
   
   err = sendCommonParameters(commonParams)

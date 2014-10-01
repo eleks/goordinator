@@ -8,15 +8,71 @@ import (
   "time"
 )
 
-func readCommonParameters(filename string) (params []common.Tasker, err error) {
+func readCommonParameters() (params []common.Tasker, err error) {
   params = make([]common.Tasker, 1)
-  data := make([]float32, 1)
-  data[0] = 2.0
-  params[0] = &common.TaskParameterFloat{
-    Data: data,
-    Dim1: 1,
-    Dim2: 1,
-    Dim3: 1}
+
+  objects := make([]common.SceneSerializer, 6)
+  objects[0] = &common.SphereObject{
+    Center: common.Vector3{0, -10004, -20},
+    R: 10000,
+    SurfaceColor: common.Vector3{0.2, 0.2, 0.2},
+    EmissionColor: common.Vector3{},
+    Transparency: 0,
+    Reflection: 0,
+  }
+
+  objects[1] = &common.SphereObject{
+    Center: common.Vector3{0, 0, -20},
+    R: 4,
+    SurfaceColor: common.Vector3{1.0, 0.32, 0.36},
+    EmissionColor: common.Vector3{},
+    Transparency: 0.5,
+    Reflection: 1,
+  }
+
+  objects[2] = &common.SphereObject{
+    Center: common.Vector3{5, -1, -15},
+    R: 2,
+    SurfaceColor: common.Vector3{0.9, 0.76, 0.46},
+    EmissionColor: common.Vector3{},
+    Transparency: 0,
+    Reflection: 1,
+  }
+
+  objects[3] = &common.SphereObject{
+    Center: common.Vector3{5, 0, -25},
+    R: 3,
+    SurfaceColor: common.Vector3{0.65, 0.77, 0.97},
+    EmissionColor: common.Vector3{},
+    Transparency: 0,
+    Reflection: 1,
+  }
+
+  objects[4] = &common.SphereObject{
+    Center: common.Vector3{-5.5, 0, -15},
+    R: 3,
+    SurfaceColor: common.Vector3{0.9, 0.9, 0.9},
+    EmissionColor: common.Vector3{},
+    Transparency: 0,
+    Reflection: 1,
+  }
+
+  // light
+  objects[5] = &common.SphereObject{
+    Center: common.Vector3{0, 20, -30},
+    R: 3,
+    SurfaceColor: common.Vector3{},
+    EmissionColor: common.Vector3{3, 3, 3},
+    Transparency: 0,
+    Reflection: 0,    
+  }
+
+  params[0] = &common.BeginSessionTasker{
+    Width: 640,
+    Height: 480,
+    Angle: 60,
+    SceneObjects: objects}
+
   return params, nil
 }
 

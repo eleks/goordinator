@@ -3,16 +3,21 @@ package main
 import (
   "../common"
   "encoding/binary"
+  "image/color"
+  "math"
   "net"
+  "bytes"
   "log"
   "time"
+  "os"
+  "image/png"
 )
 
 func readCommonParameters() (params []common.Tasker, err error) {
   params = make([]common.Tasker, 1)
 
-  objects := make([]common.SceneSerializer, 6)
-  objects[0] = &common.SphereObject{
+  objects := make([]common.SphereObject, 6)
+  objects[0] = common.SphereObject{
     Center: common.Vector3{0, -10004, -20},
     R: 10000,
     SurfaceColor: common.Vector3{0.2, 0.2, 0.2},
@@ -21,7 +26,7 @@ func readCommonParameters() (params []common.Tasker, err error) {
     Reflection: 0,
   }
 
-  objects[1] = &common.SphereObject{
+  objects[1] = common.SphereObject{
     Center: common.Vector3{0, 0, -20},
     R: 4,
     SurfaceColor: common.Vector3{1.0, 0.32, 0.36},
@@ -30,7 +35,7 @@ func readCommonParameters() (params []common.Tasker, err error) {
     Reflection: 1,
   }
 
-  objects[2] = &common.SphereObject{
+  objects[2] = common.SphereObject{
     Center: common.Vector3{5, -1, -15},
     R: 2,
     SurfaceColor: common.Vector3{0.9, 0.76, 0.46},
@@ -39,7 +44,7 @@ func readCommonParameters() (params []common.Tasker, err error) {
     Reflection: 1,
   }
 
-  objects[3] = &common.SphereObject{
+  objects[3] = common.SphereObject{
     Center: common.Vector3{5, 0, -25},
     R: 3,
     SurfaceColor: common.Vector3{0.65, 0.77, 0.97},
@@ -48,7 +53,7 @@ func readCommonParameters() (params []common.Tasker, err error) {
     Reflection: 1,
   }
 
-  objects[4] = &common.SphereObject{
+  objects[4] = common.SphereObject{
     Center: common.Vector3{-5.5, 0, -15},
     R: 3,
     SurfaceColor: common.Vector3{0.9, 0.9, 0.9},
@@ -58,7 +63,7 @@ func readCommonParameters() (params []common.Tasker, err error) {
   }
 
   // light
-  objects[5] = &common.SphereObject{
+  objects[5] = common.SphereObject{
     Center: common.Vector3{0, 20, -30},
     R: 3,
     SurfaceColor: common.Vector3{},
@@ -67,39 +72,25 @@ func readCommonParameters() (params []common.Tasker, err error) {
     Reflection: 0,    
   }
 
-  params[0] = &common.BeginSessionTasker{
+  bst := &common.BeginSessionTasker{
     Width: 640,
     Height: 480,
     Angle: 60,
-    SceneObjects: objects}
+    ObjectsCount: 6}
 
+  bst.SceneObjects = make([]float32, 12*len(objects))
+  i := 0
+  for _, o := range objects {
+    i = o.PackToVector(bst.SceneObjects, i)
+  }
+
+  params[0] = bst
   return params, nil
 }
 
-func readRealParameters(filename string) (params []common.Tasker, err error) {
-  // simulate reading for test
-  h, w, d := 100, 100, 100
-
-  data := make([]float32, h*w*d)
-
-  for i:=0; i < h; i++ {
-    for j:=0; j < w; j++ {
-      for k:=0; k < d; k++ {
-        if i == j && j == k {
-          index := i*w+j + h*w*k
-          data[index] = 1.0
-        }
-      }
-    }
-  }
-
+func readRealParameters(height, width int) (params []common.Tasker, err error) {
   params = make([]common.Tasker, 1)
-  params[0] = &common.TaskParameterFloat{
-    Data: data,
-    Dim1: uint32(h),
-    Dim2: uint32(w),
-    Dim3: uint32(d)}
-  
+  params[0] = &common.ComputeRaysTasker{0, int64(height*width - 1), 0}
   return params, nil
 }
 
@@ -211,17 +202,19 @@ func startCommonParamsConnection() (conn net.Conn, err error) {
   return conn, nil
 }
 
-func computeTasks(parameters []common.Tasker, grindNumber int) error {
+func computeTasks(parameters []common.Tasker, grindNumber int) (int, error) {
   conn, err := startComputeConnection()
-  if err != nil { return err }
+  if err != nil { return 0, err }
 
-  bw := &common.BinWriter{W: conn}
+  bw := common.BinWriter{W: conn}
 
   paramLength := uint32(len(parameters))
   log.Printf("Sending grinded (grind number %v) parameters to coordinator...", grindNumber)
 
   log.Printf("Sending batches count (%v)", grindNumber)
   bw.Write(uint32(grindNumber))
+
+  tasksSent := 0
 
   for i:=0; i < grindNumber; i++ {
     bw.Write(paramLength)
@@ -234,14 +227,16 @@ func computeTasks(parameters []common.Tasker, grindNumber int) error {
 
       if bw.Err != nil {
         log.Printf("Error while dumping subtask %v of parameter %v (%v)\n", i, j, bw.Err)
-        return bw.Err
+        return tasksSent, bw.Err
       }
+
+      tasksSent += 1
     }
   }
 
   log.Println("Sending tasks loop finished")
 
-  return bw.Err
+  return tasksSent, bw.Err
 }
 
 func startComputeConnection() (conn net.Conn, err error) {
@@ -279,20 +274,14 @@ func sendCollectResultsRequest() error {
 
 func receiveResults(results chan *common.ComputationResult) {
   // in this version
-  queues_number := 2
+  queuesNumber := 2
   
-  waitAll := make([]chan bool, queues_number)
-  for i := range waitAll { waitAll[i] = make(chan bool) }
-
-  for i := range waitAll {
-    go receiveResultsLoop(results, waitAll[i])
+  for ; queuesNumber > 0; queuesNumber-- {
+    go receiveResultsLoop(results)
   }
-
-  // actually, wait all of them
-  for i := range waitAll { <- waitAll[i] }
 }
 
-func receiveResultsLoop(results chan *common.ComputationResult, finished chan bool) {
+func receiveResultsLoop(results chan *common.ComputationResult) {
   ping := make(chan bool)
 getResults:
   for {
@@ -313,8 +302,6 @@ getResults:
       break getResults
     }
   }
-
-  finished <- true
 }
 
 func getOneResult(results chan *common.ComputationResult, ping chan bool) error {
@@ -347,22 +334,62 @@ func getOneResult(results chan *common.ComputationResult, ping chan bool) error 
   return nil
 }
 
-func handleTaskResults(results chan *common.ComputationResult, handled chan bool) {
+func handleTaskResults(rh *ResultsHolder, results chan *common.ComputationResult, handled chan bool) {
+  resultsReceived := 0
+  
 saveLoop:
   for {
     select {
-    case cr := <- results: saveTaskResult(cr)
+    case cr := <- results: {
+      saveTaskResult(rh, cr)
+      resultsReceived++
+
+      log.Printf("Results received %v out of %v\n", resultsReceived, rh.tasksSent)
+
+      if resultsReceived == rh.tasksSent {
+        break saveLoop
+      }
+    }
     case <- time.After(1 * time.Minute): break saveLoop
     }
   }
 
+  log.Printf("Handled all task results...")
   handled <- true
 }
 
-func saveTaskResult(cr *common.ComputationResult) {
+func saveTaskResult(rh *ResultsHolder, cr *common.ComputationResult) {
   log.Printf("Received task result for task #%v with size %v", cr.ID, cr.Size)
-  // TODO: implement
+
+  rcr := new(common.RaysComputationResult)
+  r := bytes.NewReader(cr.Data)
+  err := rcr.Load(r)
+
+  width := int64(rh.width)
+
+  if err != nil {
+    log.Printf("Failed to decode rays computation task result")
+    return
+  }
+
+  for i:=rcr.StartIndex; i <= rcr.EndIndex; i++ {
+    p := rcr.Colors[i - rcr.StartIndex]
+    r, g, b := p[0], p[1], p[2]
+
+    x, y := i % width, i / width
+    rh.image.SetRGBA(int(x), int(y), color.RGBA{
+      uint8(math.Min(1.0, float64(r))*255.0),
+      uint8(math.Min(1.0, float64(g))*255.0),
+      uint8(math.Min(1.0, float64(b))*255.0),
+      255})
+  }
 }
 
-func saveResults() {
+func saveResults(rh *ResultsHolder) {
+  log.Println("Saving results...")
+  
+  toimg, _ := os.Create("scene.png")
+  defer toimg.Close()
+
+  png.Encode(toimg, rh.image)
 }

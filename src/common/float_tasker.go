@@ -66,6 +66,7 @@ func (ft *TaskParameterFloat) Exec(f ExecFunc, param float32) {
 }
 
 func (ft *TaskParameterFloat) GetSubTask(i uint32, grindNumber uint32) Tasker {
+  // TODO: add special case when dim1 == 1
   sliceFrom := i*grindNumber
   sliceTo := (i + 1)*grindNumber
 

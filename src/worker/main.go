@@ -38,7 +38,7 @@ func main() {
     stopMessages: make(chan chan error),
     sendingMode: false,
     stopComputations: make(chan bool, defaultBufferLength),
-    computator: MatrixComputator{}}
+    computator: &RaytracerComputator{}}
 
   go cm.processTasks()
 

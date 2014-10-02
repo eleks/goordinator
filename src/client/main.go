@@ -2,6 +2,7 @@ package main
 
 import (
   "../common"
+  "image"
   "flag"
   "log"
   "os"
@@ -17,6 +18,11 @@ var (
   logfile = flag.String("l", "client.log", "absolute path to log file")
 )
 
+type ResultsHolder struct {
+  tasksSent int
+  height, width int
+  image *image.RGBA
+}
 
 func main() {
   parseFlags()
@@ -37,9 +43,11 @@ func main() {
   err = sendCommonParameters(commonParams)
   checkFail(err)
 
-  realParams, err := readRealParameters("anyfile")
- 
-  err = computeTasks(realParams, *grind)
+  height, width := 480, 640
+  realParams, err := readRealParameters(height, width)
+
+  var tasksSent int
+  tasksSent, err = computeTasks(realParams, *grind)
   checkFail(err)
 
   <- canGetResults
@@ -48,14 +56,16 @@ func main() {
     return 
   }
 
+  resultsHolder := &ResultsHolder{(tasksSent + 1), height, width, image.NewRGBA(image.Rect(0, 0, width, height))}
+
   results := make(chan *common.ComputationResult)
   resultsHandled := make(chan bool)
-  go handleTaskResults(results, resultsHandled)
+  go handleTaskResults(resultsHolder, results, resultsHandled)
   receiveResults(results)
 
   <- resultsHandled
   
-  saveResults()
+  saveResults(resultsHolder)
 }
 
 func checkFail(err error) {

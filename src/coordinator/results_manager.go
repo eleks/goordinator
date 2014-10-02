@@ -20,6 +20,8 @@ func handleWorkerGetResults(tasksresults <-chan common.Socket, computationResult
 
       if err == nil {
         go func(crch chan<- *common.ComputationResult, ch *common.ComputationResult) {crch <- ch} (computationResults, &common.ComputationResult{gd, taskID})
+      } else {
+        log.Printf("Received error while reading task #%v result: %v", taskID, err)
       }
     }
 

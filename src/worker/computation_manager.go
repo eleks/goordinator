@@ -36,8 +36,8 @@ LoopCommands:
         go cm.downloadNewTask()
         cm.pendingTasksCount++
       } else if pending < 0 && !cm.sendingMode {
-        cm.sendingMode = true
-        cm.sendTaskResults()
+        cm.sendingMode = true        
+        go cm.sendTaskResults()
       }
     }
     case result := <- cm.chResults: {
@@ -118,6 +118,7 @@ Loop:
     }
       // for healthcheck fail
     case <- cm.stopComputations:
+      cm.computator.endSession()
       break Loop
     }
   }
@@ -133,6 +134,8 @@ func (cm *ComputationManager) sendTaskResults() {
     <- finished
     delete(cm.results, key)    
   }
+
+  go func(f chan bool) {f <- true} (cm.stopComputations)
 }
 
 func sendTaskResult(cr *common.ComputationResult, finished chan bool) error {

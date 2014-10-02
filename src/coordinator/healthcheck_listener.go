@@ -37,7 +37,8 @@ func checkHealth(hr HealthReporter, sock common.Socket, timeout chan HealthRepor
     for {
       err := binary.Read(sock, binary.BigEndian, &heartBeat)
       if err != nil {
-        log.Printf("Error while reading heartbeat %v", err)
+        log.Printf("Error while reading heartbeat %v. Exiting...", err)
+        return
       }
 
       healthcheck <- heartBeat

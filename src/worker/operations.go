@@ -8,7 +8,7 @@ import (
   "time"
 )
 
-func initConnection(cm ComputationManager) (err error) {
+func initConnection(cm *ComputationManager) (err error) {
   reconnectTries := maxReconnectTries
 
 reconnect:
@@ -27,7 +27,7 @@ reconnect:
   return err
 }
 
-func connectToCoordinator(cm ComputationManager) (err error) {
+func connectToCoordinator(cm *ComputationManager) (err error) {
   var conn net.Conn
   log.Printf("Connecting to coordinator %v...\n", *caddr)
     
@@ -40,7 +40,7 @@ func connectToCoordinator(cm ComputationManager) (err error) {
     err = binary.Read(conn, binary.BigEndian, &id)
     if err == nil {
       cm.ID = id
-      log.Printf("Received id #%v from coordinator", id)
+      log.Printf("Received id #%v from coordinator", cm.ID)
     } else {
       log.Printf("Error on receiving Id (%v)", err)
     }
@@ -51,7 +51,7 @@ func connectToCoordinator(cm ComputationManager) (err error) {
   return err
 }
 
-func startHealthcheck(cm ComputationManager) {
+func startHealthcheck(cm *ComputationManager) {
   conn, err := net.Dial("tcp", *caddr)
 
   if err != nil {
@@ -73,7 +73,7 @@ func startHealthcheck(cm ComputationManager) {
   go healthcheckMainLoop(cm, conn)
 }
 
-func healthcheckMainLoop(cm ComputationManager, conn net.Conn) {
+func healthcheckMainLoop(cm *ComputationManager, conn net.Conn) {
   infoChannel := make(chan int32)
 
   log.Println("Healthcheck main loop started")
@@ -92,7 +92,7 @@ healthCheck:
 
     if err == nil {
       log.Printf("Pending %v tasks. Done %v", pending, doneTasksCount)
-      go func(c ComputationManager, p int32) {c.healthcheckResponse <- p}(cm, pending)
+      go func(c *ComputationManager, p int32) {c.healthcheckResponse <- p}(cm, pending)
     } else {
       log.Printf("Error while healthcheck, %v", err)
       break healthCheck

@@ -19,7 +19,7 @@ type WorkerChannels struct {
 // worker connection info
 type WCInfo struct {
   ID uint32
-  sock common.Socket
+  sock *common.Socket
 }
 
 type Worker struct {
@@ -112,7 +112,7 @@ func (w *Worker) RetrieveStatus(cinfo chan interface{}) {
   w.ccinfo <- cinfo
 }
 
-func (w *Worker) sendNextTask(sock common.Socket) error {
+func (w *Worker) sendNextTask(sock *common.Socket) error {
   defer sock.Close()
   
   task := <- w.tasks

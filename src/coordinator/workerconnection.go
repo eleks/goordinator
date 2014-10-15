@@ -48,12 +48,12 @@ func handleWorker(sock common.Socket, wch WorkerChannels) error {
   case common.WInit:
     log.Println("Adding worker...")
     wch.addworker <- &Worker{
-      tasks: make(chan *common.Task),
+      tasks: make(chan *common.Task, *wcap),
       getResults: make(chan bool),
       ccinfo: make(chan chan interface{}),
       updatePending: make(chan int64),
       activeTasks: make(map[int64]*common.Task),
-      capacity: maxWorkerTasksCapacity,
+      capacity: int64(*wcap),
       ID: 0}
     nextID := <- wch.nextID
     binary.Write(sock, binary.BigEndian, nextID)
@@ -62,13 +62,13 @@ func handleWorker(sock common.Socket, wch WorkerChannels) error {
     err = binary.Read(sock, binary.BigEndian, &workerID)
     if err == nil {
       log.Printf("Worker healthcheck request received for id #%v", workerID)
-      wch.healthcheckRequest <- WCInfo{workerID, sock}
+      wch.healthcheckRequest <- WCInfo{workerID, &sock}
     }
   case common.WGetTask:
     err = binary.Read(sock, binary.BigEndian, &workerID)
     if err == nil {
       log.Printf("Worker GetTask request received for id #%v", workerID)
-      wch.gettaskRequest <- WCInfo{workerID, sock}
+      wch.gettaskRequest <- WCInfo{workerID, &sock}
     }
   case common.WTaskCompeted: // can be implemented on demand
   case common.WSendResult:

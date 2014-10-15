@@ -51,7 +51,6 @@ func main() {
     hash: make(map[uint32]*Worker),
     // buffered
     tasks: make(chan *common.Task, maxWorkerTasksCapacity),
-    broadcastTask: make(chan *common.Task),
     initWorkerQueue: make(chan *Worker),
     joinPoolQueue: make(chan *Worker),
     collectResults: make(chan bool),

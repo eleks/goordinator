@@ -27,7 +27,7 @@ func main() {
     defer f.Close()
   }
 
-  cm := ComputationManager{
+  cm := &ComputationManager{
     ID: 0,
     healthcheckResponse: make(chan int32),
     statusInfo: make(chan chan int32),

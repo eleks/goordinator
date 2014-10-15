@@ -23,7 +23,7 @@ type HealthReporter interface {
   GetUpdateReplyChannel() chan int64
 }
 
-func checkHealth(hr HealthReporter, sock common.Socket, timeout chan HealthReporter) {
+func checkHealth(hr HealthReporter, sock *common.Socket, timeout chan HealthReporter) {
   defer sock.Close()
 
   healthcheck := make(chan int32, 1)
